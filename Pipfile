@@ -1,0 +1,26 @@
+[[source]]
+
+url = "https://pypi.python.org/simple"
+verify_ssl = true
+name = "pypi"
+
+
+[packages]
+
+tinydb = "*"
+"glob2" = "*"
+six = "*"
+chardet = "*"
+click = "*"
+idna = "*"
+ipfsapi = "*"
+pillow = "*"
+
+
+[dev-packages]
+
+
+
+[requires]
+
+python_version = "3.6"
