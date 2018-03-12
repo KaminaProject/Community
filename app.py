@@ -117,8 +117,9 @@ def main(ctx, verbose, debug, log, config) -> None:
 
 
 @main.command()
+@click.option("--download-ipfs", is_flag=True, help="Download ipfs using this script.")
 @click.pass_context
-def init(ctx) -> None:
+def init(ctx, download_ipfs) -> None:
     """Setup a new Kamina instance"""
 
     logger = None
@@ -142,11 +143,11 @@ def init(ctx) -> None:
         sys.exit(1)
 
     try:
-        setup_thread = threading.Thread(target=daemon.setup(), args=())
+        setup_thread = threading.Thread(target=daemon.setup, args=(download_ipfs,))
         setup_thread.start()
         # If we're running in production, give a nice fidget spinner
         if not conf["verbose"]:
-            sys.stdout.write("Setting up a new Kamina instance....")
+            print("Setting up a new Kamina instance....")
             while daemon.running:
                 sys.stdout.write(next(spinner))
                 sys.stdout.write('\b')
