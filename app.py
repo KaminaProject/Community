@@ -1,4 +1,13 @@
-#!/usr/bin/env python
+import itertools
+import os
+import sys
+import json
+import threading
+import logging
+import logging.config
+import click
+import kamina
+
 """
 Kamina - The />p/ social network
 Copyright (C) 2018, The Kamina Project
@@ -26,172 +35,179 @@ It also instantiates a logger, loads JSON configuration files, invokes the
 daemon process for a Kamina instance, and populates the attributes of the 
 internal daemon class.  
 """
-import itertools, os, sys, json
-import threading, logging, logging.config
-import click
-import kamina
-
 
 #
-#load_config - open a JSON file, and parse their values into a dict
+# load_config - open a JSON file, and parse their values into a dict
 #
+
+
 def load_config(filename="config.json") -> dict:
-	config = {}
-	
-	if os.path.exists(filename):
-		with open(filename, "rt") as cfg:
-			try:
-				config = json.load(cfg)
-			except:
-				print("Config file format is invalid! Providing defaults...")
-	else:
-		print("No config file found!")
+    config = {}
 
-	return config
+    if os.path.exists(filename):
+        with open(filename, "rt") as cfg:
+            try:
+                config = json.load(cfg)
+            except:
+                print("Config file format is invalid! Providing defaults...")
+    else:
+        print("No config file found!")
 
-#I have a low opinion of sigils, so function decorators have always looked
-#like pythonic cancer.  Despite that, I've gotta admit the Click framework
-#makes writing these cli apps insanely easy, so... I'll roll with it.
+    return config
+
+# I have a low opinion of sigils, so function decorators have always looked
+# like pythonic cancer.  Despite that, I've gotta admit the Click framework
+# makes writing these cli apps insanely easy, so... I'll roll with it.
+
+
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.version_option(version=0.33, prog_name="kamina")
 @click.option("--verbose", default=False, is_flag=True, help="Print all log messages to console")
 @click.option("--debug", default=False, is_flag=True, help="Enable debugging")
-@click.option("--log","-l",default=None, type=click.Path(), help="Redirect logging location")
-@click.option("--config","-c",default="config.json", type=click.Path(exists=True), help="Specify alternate configuration file")
+@click.option("--log", "-l", default=None, type=click.Path(), help="Redirect logging location")
+@click.option("--config", "-c", default="config.json", type=click.Path(exists=True),
+              help="Specify alternate configuration file")
 @click.pass_context
 def main(ctx, verbose, debug, log, config) -> None:
-	"""The Kamina service utility"""
-	
-	logger = None
-	handlers = []
-	conf = {}
-	
-	conf = load_config(config)
-	if "logging" in conf:  
-		logging.config.dictConfig(conf["logging"])
+    """The Kamina service utility"""
 
-	#There might not have been any configuration loaded, so let's at least set 
-	#a baseline - these two values should at least be known.
-	if not "debug" in conf:
-		conf["debug"] = debug
-	if not "verbose" in conf:
-		conf["verbose"] = verbose
-	
-	#Now override the config file defaults with any command line options
-	if debug == True:
-		conf["debug"] = True
-		logging.basicConfig(level=logging.DEBUG)
-	else:  
-		logging.basicConfig(level=logging.INFO)
-	logger = logging.getLogger(__name__)
+    logger = None
+    handlers = []
+    conf = {}
 
-	#If you specified an alternate log location on the command-line, use that.
-	#Otherwise, use syslog, so we at least have that, even if the config file
-	#didn't specify any logging info.
-	if log != None:  
-		handlers.append(logging.FileHandler(log))
-	else:  
-		#Make sure we're not setting up two syslog handlers
-		if not len(logger.handlers):
-			handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
-	
-	if verbose == True:
-		conf["verbose"] = True
-		handlers.append(logging.StreamHandler(sys.stdout))
+    conf = load_config(config)
+    if "logging" in conf:
+        logging.config.dictConfig(conf["logging"])
 
-	for handle in handlers:  
-		logger.addHandler(handle)
-	
-	#Now, propogate the context for our sub-commands
-	ctx.obj["CONF"] = conf
-	ctx.obj["LOG"] = logger
+    # There might not have been any configuration loaded, so let's at least set
+    # a baseline - these two values should at least be known.
+    if "debug" not in conf:
+        conf["debug"] = debug
+    if "verbose" not in conf:
+        conf["verbose"] = verbose
+
+    # Now override the config file defaults with any command line options
+    if debug:
+        conf["debug"] = True
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
+
+    # If you specified an alternate log location on the command-line, use that.
+    # Otherwise, use syslog, so we at least have that, even if the config file
+    # didn't specify any logging info.
+    if log is not None:
+        handlers.append(logging.FileHandler(log))
+    else:
+        # Make sure we're not setting up two syslog handlers
+        if not len(logger.handlers):
+            handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
+
+    if verbose:
+        conf["verbose"] = True
+        handlers.append(logging.StreamHandler(sys.stdout))
+
+    for handle in handlers:
+        logger.addHandler(handle)
+
+    # Now, propogate the context for our sub-commands
+    ctx.obj["CONF"] = conf
+    ctx.obj["LOG"] = logger
+
 
 @main.command()
 @click.pass_context
 def init(ctx) -> None:
-	"""Setup a new Kamina instance"""
-	
-	logger = None
-	spinner = ""
-	conf = {}
-	
-	#Grab our context from main for logging and config info.
-	logger = ctx.obj["LOG"]
-	conf = ctx.obj["CONF"]
-	spinner = itertools.cycle(['-', '/', '|', '\\'])
-	
-	if logger == None or len(conf) == 0:
-		print("init:  no valid conf or logger passed.  Exiting.")
-		sys.exit(1)
-	
-	logger.info("Setting up a new Kamina instance...")
-	try:
-		daemon = kamina.KaminaInstance(conf, logger)
-	except Exception as e:
-		print(e)
-		sys.exit(1)
-	
-	try:
-		setup_thread = threading.Thread(target=daemon.Setup(), args=())
-		setup_thread.start()
-		#If we're running in production, give a nice fidget spinner
-		if conf["verbose"] == False:
-			sys.stdout.write("Setting up a new Kamina instance....")
-			while daemon.running:
-				sys.stdout.write(next(spinner))
-				sys.stdout.write('\b')
-				sys.stdout.flush()
-	except Exception as e:
-		sys.stdout.write("\bfailed!")
-		sys.stdout.flush()
-		
-		print(e)
-		sys.exit(1)
-	else:
-		sys.stdout.write("\bdone!")
-		sys.stdout.flush()
-		sys.exit(0)
+    """Setup a new Kamina instance"""
+
+    logger = None
+    spinner = ""
+    conf = {}
+
+    # Grab our context from main for logging and config info.
+    logger = ctx.obj["LOG"]
+    conf = ctx.obj["CONF"]
+    spinner = itertools.cycle(['-', '/', '|', '\\'])
+
+    if logger is None or len(conf) == 0:
+        print("init:  no valid conf or logger passed.  Exiting.")
+        sys.exit(1)
+
+    logger.info("Setting up a new Kamina instance...")
+    try:
+        daemon = kamina.KaminaInstance(conf, logger)
+    except Exception as e:
+        print(e)
+        sys.exit(1)
+
+    try:
+        setup_thread = threading.Thread(target=daemon.setup(), args=())
+        setup_thread.start()
+        # If we're running in production, give a nice fidget spinner
+        if not conf["verbose"]:
+            sys.stdout.write("Setting up a new Kamina instance....")
+            while daemon.running:
+                sys.stdout.write(next(spinner))
+                sys.stdout.write('\b')
+                sys.stdout.flush()
+    except Exception as e:
+        sys.stdout.write("\bfailed!")
+        sys.stdout.flush()
+
+        print(e)
+        sys.exit(1)
+    else:
+        sys.stdout.write("\bdone!")
+        sys.stdout.flush()
+        sys.exit(0)
+
 
 @main.command()
 def daemon() -> None:
-	"""Run the Kamina service as a daemon"""
-	
-	pass
+    """Run the Kamina service as a daemon"""
+
+    pass
+
 
 @main.command(short_help="Manually create a post", help="Manually create a post identified by <postid>")
 @click.argument("postid", metavar="<postid>")
 def create(postid) -> None:
-	pass
+    pass
+
 
 @main.command(short_help="Manually delete a post", help="Manually delete a post identified by <postid>")
 @click.argument("postid", metavar="<postid>")
 def delete(postid) -> None:
-	click.echo("Delete called")
+    click.echo("Delete called")
+
 
 @main.command()
 def archive() -> None:
-	"""Set all posts to expire"""
-	
-	pass
+    """Set all posts to expire"""
+
+    pass
+
 
 @main.command(short_help="Reload system modules")
 @click.argument("module", default=None, required=False, nargs=1)
 def reload(module) -> None:
-	"""Valid modules are [posts|media|net] or blank to reload all"""
-	
-	pass
+    """Valid modules are [posts|media|net] or blank to reload all"""
+
+    pass
+
 
 @main.command()
 @click.argument('topic', default=None, required=False, nargs=1)
 @click.pass_context
 def help(ctx, topic) -> None:
-	"""Print this help message and exit"""
-	
-	if topic is None:  
-		click.echo(ctx.parent.get_help())
-	else:  
-		click.echo(main.commands[topic].get_help(ctx))
+    """Print this help message and exit"""
+
+    if topic is None:
+        click.echo(ctx.parent.get_help())
+    else:
+        click.echo(main.commands[topic].get_help(ctx))
 
 
 if __name__ == "__main__":
-	main(obj={})
+    main(obj={})
