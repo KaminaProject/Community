@@ -6,7 +6,7 @@ import threading
 import logging
 import logging.config
 import click
-import kamina
+import Kamina
 
 """
 Kamina - The />p/ social network
@@ -61,7 +61,7 @@ def load_config(filename="config.json") -> dict:
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.version_option(version=0.33, prog_name="kamina")
+@click.version_option(version=0.33, prog_name="Kamina")
 @click.option("--verbose", default=False, is_flag=True, help="Print all log messages to console")
 @click.option("--debug", default=False, is_flag=True, help="Enable debugging")
 @click.option("--log", "-l", default=None, type=click.Path(), help="Redirect logging location")
@@ -136,7 +136,7 @@ def init(ctx) -> None:
 
     logger.info("Setting up a new Kamina instance...")
     try:
-        daemon = kamina.KaminaInstance(conf, logger)
+        daemon = Kamina.KaminaInstance(conf, logger)
     except Exception as e:
         print(e)
         sys.exit(1)

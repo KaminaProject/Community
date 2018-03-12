@@ -22,7 +22,7 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 """
 
 """
-kamina.daemon.py - Process and Thread handlers for backgrounded Kamina instances
+Kamina.daemon.py - Process and Thread handlers for backgrounded Kamina instances
 
 Provides a python class for maintaining some consistent state across processes 
 and threads.  
