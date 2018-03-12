@@ -1,4 +1,3 @@
-#!/usr/bin/env python
 """
 Kamina - The />p/ social network
 Copyright (C) 2018, The Kamina Project
@@ -24,49 +23,39 @@ kamina.daemon.py - Process and Thread handlers for backgrounded Kamina instances
 Provides a python class for maintaining some consistent state across processes 
 and threads.  
 """
-import sys, signal, time
-from copy import deepcopy
+import sys, threading, time
 
 
 class KaminaInstance:
-	"""Class providing state for the Kamina daemon"""
-	
-	#Not providing any defaults here, as an instance needs at least some conf
-	#and a logger to speak out to.
-	def  __init__(self, conf, logger) -> None:
-		self.running = False
-		
-		#Like I said, we need at least some basic conf and a logger
-		if not logger:
-			print("KaminaInstance:  not given a valid logger.")
-			raise Exception
-		else:
-			self.logger = logger
-		if (not "debug" in conf) or (not "verbose" in conf):
-			print("KaminaInstance:  not given valid conf.")
-			raise Exception
-		else:
-			self.debug = conf["debug"]
-			self.verbose = conf["verbose"]
-			
-	def signal_handler(self, signum, frame):
-		sys.stdout.write("\naborting on signal %s\n" % signum)
-		sys.stdout.flush()
-		
-		self.running = False
-		raise Exception
-			
-	def Setup(self) -> None:
-		"""Called to initialize a new Kamina instance"""
-		
-		self.running = True
-		
-		#setup our signal handlers
-		#I don't do this in __init__, because having the class initialized
-		#doesn't mean we're invoking any methods.  At least not yet.
-		signal.signal(signal.SIGTERM, self.signal_handler)
-		signal.signal(signal.SIGINT, self.signal_handler)
-
-		time.sleep(5)
-
-		self.running = False
+    """Class providing state for the Kamina daemon"""
+    
+    #Not providing any defaults here, as an instance needs at least some conf
+    #and a logger to speak out to.
+    def  __init__(self, conf, logger) -> None:
+        self.running = False
+        self.lock    = threading.Lock()
+        
+        #Like I said, we need at least some basic conf and a logger
+        if not logger:
+            print("KaminaInstance:  not given a valid logger.")
+            raise Exception
+        else:
+            self.logger = logger
+        if (not "debug" in conf) or (not "verbose" in conf):
+            print("KaminaInstance:  not given valid conf.")
+            raise Exception
+        else:
+            self.debug   = conf["debug"]
+            self.verbose = conf["verbose"]
+            
+def Setup(kaminainstance_handle) -> None:
+    """Called to initialize a new Kamina instance"""
+        
+    kaminainstance_handle.running = True
+        
+    a=0
+    for i in range(0, 100000000):
+        if kaminainstance_handle.running == True:  a += i
+        else:  break
+            
+    kaminainstance_handle.running = False
