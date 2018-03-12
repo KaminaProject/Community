@@ -1,6 +1,13 @@
+from pathlib import *
+from tqdm import tqdm
+import subprocess
 import sys
-import signal
-import time
+import os
+import requests
+import platform
+import tempfile
+import shutil
+import shlex
 
 """
 Kamina - The />p/ social network
@@ -57,17 +64,82 @@ class KaminaInstance:
         self.running = False
         raise Exception
 
-    def setup(self) -> None:
+    def setup(self, download_ipfs) -> None:
         """Called to initialize a new Kamina instance"""
 
         self.running = True
 
-        # setup our signal handlers
-        # I don't do this in __init__, because having the class initialized
-        # doesn't mean we're invoking any methods.  At least not yet.
-        signal.signal(signal.SIGTERM, self.signal_handler)
-        signal.signal(signal.SIGINT, self.signal_handler)
+        community_dir_path = str(PurePath(Path.home(), ".kamina-frontend"))
 
-        time.sleep(5)
+        # Try to create the folder ${HOME}/.kamina-backend
+        try:
+            os.makedirs(community_dir_path)
+        except OSError:
+            pass
+
+        # Check if the file is empty
+        # We should really check if the node has already been initialized
+        for dirpath, dirnames, files in os.walk(community_dir_path):
+            if files:
+                print("Folder '%s' is not empty!" % community_dir_path)
+                # return
+
+        # Check if ipfs is in the path
+        try:
+            subprocess.run(["ipfs"], stdout=subprocess.PIPE)
+        except FileNotFoundError:
+            if not download_ipfs:
+                print("It looks like ipfs is not in your PATH, "
+                      "add flag --download-ipfs to download IPFS through this script")
+                return
+
+        # Only download if the folder go-ipfs doesnt exist already
+        if download_ipfs and not os.path.exists(str(PurePath(community_dir_path, "go-ipfs"))):
+            print("IPFS not located, downloading IPFS binary for your platform...")
+            # Download to a temporary directory
+            extract_dir = str(PurePath(community_dir_path))
+            system = platform.system()
+            arch = platform.machine()
+            extension = "tar.gz"
+
+            # Replace the system name
+            if system == "Linux":
+                system = "linux"
+            elif system == "Windows":
+                system = "windows"
+                extension = "zip"  # The windows binary uses another extension
+
+            # Replace the arch
+            if arch == "x86_64":
+                arch = "amd64"
+            elif arch == "i386":
+                arch = "386"
+
+            # Now download the file
+            temp_dl_dir = tempfile.TemporaryDirectory()
+            temp_dl_file_location = str(PurePath(temp_dl_dir.name, "ipfs-bin.%s" % extension))
+            download_url = "https://dist.ipfs.io/go-ipfs/v0.4.13/go-ipfs_v0.4.13_%s-%s.%s" \
+                           % (system, arch, extension)
+            response = requests.get(download_url, stream=True)
+            # TODO: Improve the size
+            with open(temp_dl_file_location, "wb") as handler:
+                for data in tqdm(response.iter_content(chunk_size=1024), unit_scale=True):
+                    handler.write(data)
+
+            # Now extract the temporary file
+            print("Extracting downloaded binary...")
+            shutil.unpack_archive(temp_dl_file_location, extract_dir)
+
+        # Now initialize the ipfs node
+        binary_location = "ipfs"  # >implying ipfs is in the PATH
+        if download_ipfs:
+            binary_location = str(PurePath(community_dir_path, "go-ipfs", "ipfs"))
+        ipfs_node_path = shlex.quote(community_dir_path)  # Just to be sure
+        ipfs_init_command = "IPFS_PATH=%s %s init" % (ipfs_node_path, binary_location)
+        try:
+            subprocess.run(ipfs_init_command, shell=True)
+        except FileNotFoundError as e:
+            print("Unable to initialize ipfs node, ipfs binary not found.")
+            return
 
         self.running = False
