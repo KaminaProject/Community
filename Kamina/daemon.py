@@ -82,7 +82,6 @@ class KaminaInstance:
         for dirpath, dirnames, files in os.walk(community_dir_path):
             if files:
                 print("Folder '%s' is not empty!" % community_dir_path)
-                # return
 
         # Check if ipfs is in the path
         try:
@@ -91,6 +90,7 @@ class KaminaInstance:
             if not download_ipfs:
                 print("It looks like ipfs is not in your PATH, "
                       "add flag --download-ipfs to download IPFS through this script")
+                self.running = False
                 return
 
         # Only download if the folder go-ipfs doesnt exist already
@@ -140,6 +140,7 @@ class KaminaInstance:
             subprocess.run(ipfs_init_command, shell=True)
         except FileNotFoundError as e:
             print("Unable to initialize ipfs node, ipfs binary not found.")
+            self.running = False
             return
 
         self.running = False
