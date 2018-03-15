@@ -17,6 +17,7 @@ ipfsapi = "*"
 pillow = "*"
 requests = "*"
 tqdm = "*"
+pylint = "*"
 
 
 [dev-packages]
