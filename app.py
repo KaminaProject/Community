@@ -3,8 +3,10 @@ import os
 import sys
 import json
 import threading
+import signal
 import logging
 import logging.config
+
 import click
 import Kamina
 
@@ -29,11 +31,10 @@ Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
 app.py - the command-line driver for Kamina.
-
-This module parses command-line options, arguments, flags, and sub-commands.  
-It also instantiates a logger, loads JSON configuration files, invokes the 
-daemon process for a Kamina instance, and populates the attributes of the 
-internal daemon class.  
+This module parses command-line options, arguments, flags, and sub-commands.
+It also instantiates a logger, deals with POSIX signals, loads JSON config
+files, invokes the daemon process for a Kamina instance, and populates the
+attributes of internal classes.
 """
 
 #
@@ -61,11 +62,15 @@ def load_config(filename="config.json") -> dict:
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.version_option(version=0.33, prog_name="Kamina")
-@click.option("--verbose", default=False, is_flag=True, help="Print all log messages to console")
-@click.option("--debug", default=False, is_flag=True, help="Enable debugging")
-@click.option("--log", "-l", default=None, type=click.Path(), help="Redirect logging location")
-@click.option("--config", "-c", default="config.json", type=click.Path(exists=True),
+@click.version_option(version=0.33, prog_name="kamina")
+@click.option("--verbose", default=False, is_flag=True,
+              help="Print all log messages to console")
+@click.option("--debug", default=False, is_flag=True,
+              help="Enable debugging")
+@click.option("--log", "-l", default=None, type=click.Path(),
+              help="Redirect logging location")
+@click.option("--config", "-c", default="config.json",
+              type=click.Path(exists=True),
               help="Specify alternate configuration file")
 @click.pass_context
 def main(ctx, verbose, debug, log, config) -> None:
@@ -101,7 +106,7 @@ def main(ctx, verbose, debug, log, config) -> None:
         handlers.append(logging.FileHandler(log))
     else:
         # Make sure we're not setting up two syslog handlers
-        if not len(logger.handlers):
+        if not logger.handlers:
             handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
 
     if verbose:
@@ -123,19 +128,23 @@ def init(ctx, download_ipfs) -> None:
     """Setup a new Kamina instance"""
 
     logger = None
+    signal_thunk = None
     spinner = ""
     conf = {}
 
-    # Grab our context from main for logging and config info.
+    #First, lets' rev up that signal handler
+    signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
+
+    #Grab our context from main for logging and config info.
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
     spinner = itertools.cycle(['-', '/', '|', '\\'])
 
-    if logger is None or len(conf) == 0:
+    if logger is None or not conf:
         print("init:  no valid conf or logger passed.  Exiting.")
         sys.exit(1)
-
     logger.info("Setting up a new Kamina instance...")
+
     try:
         daemon = Kamina.KaminaInstance(conf, logger)
     except Exception as e:
@@ -143,67 +152,65 @@ def init(ctx, download_ipfs) -> None:
         sys.exit(1)
 
     try:
-        setup_thread = threading.Thread(target=daemon.setup, args=(download_ipfs,))
+        setup_thread = threading.Thread(target=Kamina.setup, args=(daemon, download_ipfs))
+        signal.signal(signal.SIGINT, signal_thunk)
         setup_thread.start()
-        # If we're running in production, give a nice fidget spinner
+
+        #If we're running in production, give a nice fidget spinner
         if not conf["verbose"]:
-            print("Setting up a new Kamina instance....")
+            print("Setting up a new Kamina instance....", end='', flush=True)
             while daemon.running:
                 sys.stdout.write(next(spinner))
                 sys.stdout.write('\b')
                 sys.stdout.flush()
+    except KeyboardInterrupt:
+        daemon.running = False
+        sys.stdout.write("\baborted!")
+        sys.stdout.flush()
     except Exception as e:
         sys.stdout.write("\bfailed!")
+        sys.stdout.write("\n%s" % e)
         sys.stdout.flush()
-
-        print(e)
-        sys.exit(1)
     else:
+        setup_thread.join()
         sys.stdout.write("\bdone!")
         sys.stdout.flush()
-        sys.exit(0)
 
+    sys.exit(0)
 
 @main.command()
 def daemon() -> None:
     """Run the Kamina service as a daemon"""
-
     pass
 
-
-@main.command(short_help="Manually create a post", help="Manually create a post identified by <postid>")
+@main.command(short_help="Manually create a post",
+              help="Manually create a post identified by <postid>")
 @click.argument("postid", metavar="<postid>")
 def create(postid) -> None:
     pass
 
-
-@main.command(short_help="Manually delete a post", help="Manually delete a post identified by <postid>")
+@main.command(short_help="Manually delete a post",
+              help="Manually delete a post identified by <postid>")
 @click.argument("postid", metavar="<postid>")
 def delete(postid) -> None:
-    click.echo("Delete called")
-
+    pass
 
 @main.command()
 def archive() -> None:
     """Set all posts to expire"""
-
     pass
-
 
 @main.command(short_help="Reload system modules")
 @click.argument("module", default=None, required=False, nargs=1)
 def reload(module) -> None:
     """Valid modules are [posts|media|net] or blank to reload all"""
-
     pass
-
 
 @main.command()
 @click.argument('topic', default=None, required=False, nargs=1)
 @click.pass_context
 def help(ctx, topic) -> None:
     """Print this help message and exit"""
-
     if topic is None:
         click.echo(ctx.parent.get_help())
     else:
