@@ -1,8 +1,2 @@
 #!/usr/bin/env bash
-ARGS=""
-for passed_args in $@
-do
-    ARGS="${ARGS} ${passed_args}"
-done
-
-/usr/bin/env python3 app.py ${ARGS}
+/usr/bin/env python3 app.py "$@"
