@@ -1,33 +1,19 @@
-import itertools
-import os
-import sys
-import json
-import threading
-import signal
-import logging
-import logging.config
-
-import click
-import Kamina
-
-"""
-Kamina - The />p/ social network
-Copyright (C) 2018, The Kamina Project
-
-This program is free software; you can redistribute it and/or
-modify it under the terms of the GNU General Public License
-as published by the Free Software Foundation; either version 2
-of the License, or (at your option) any later version.
-
-This program is distributed in the hope that it will be useful,
-but WITHOUT ANY WARRANTY; without even the implied warranty of
-MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
-
-You should have received a copy of the GNU General Public License
-along with this program; if not, write to the Free Software
-Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
-"""
+# Kamina - The />p/ social network
+# Copyright (C) 2018, The Kamina Project
+#
+# This program is free software; you can redistribute it and/or
+# modify it under the terms of the GNU General Public License
+# as published by the Free Software Foundation; either version 2
+# of the License, or (at your option) any later version.
+#
+# This program is distributed in the hope that it will be useful,
+# but WITHOUT ANY WARRANTY; without even the implied warranty of
+# MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+# GNU General Public License for more details.
+#
+# You should have received a copy of the GNU General Public License
+# along with this program; if not, write to the Free Software
+# Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
 app.py - the command-line driver for Kamina.
@@ -37,19 +23,29 @@ files, invokes the daemon process for a Kamina instance, and populates the
 attributes of internal classes.
 """
 
-#
-# load_config - open a JSON file, and parse their values into a dict
-#
+import os
+import sys
+import json
+import logging
+import logging.config
+
+import commands
+import click
 
 
 def load_config(filename="config.json") -> dict:
+    """
+    Open a JSON file, and parse their values into a dict
+    :param filename: The config filename, defaults to $PWD/config.json
+    :return: A dictionary containing the loaded configuration
+    """
     config = {}
 
     if os.path.exists(filename):
         with open(filename, "rt") as cfg:
             try:
                 config = json.load(cfg)
-            except:
+            except json.JSONDecodeError:
                 print("Config file format is invalid! Providing defaults...")
     else:
         print("No config file found!")
@@ -119,102 +115,30 @@ def main(ctx, verbose, debug, log, config) -> None:
     # Now, propogate the context for our sub-commands
     ctx.obj["CONF"] = conf
     ctx.obj["LOG"] = logger
+    ctx.obj["BASIC_COMMANDS"] = commands.BasicCommands(ctx)
+    ctx.obj["ADVANCED_COMMANDS"] = commands.AdvancedCommands()
 
 
 @main.command()
 @click.option("--download-ipfs", is_flag=True, help="Download ipfs using this script.")
 @click.pass_context
 def init(ctx, download_ipfs) -> None:
-    """Setup a new Kamina instance"""
-
-    logger = None
-    signal_thunk = None
-    spinner = ""
-    conf = {}
-
-    #First, lets' rev up that signal handler
-    signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
-
-    #Grab our context from main for logging and config info.
-    logger = ctx.obj["LOG"]
-    conf = ctx.obj["CONF"]
-    spinner = itertools.cycle(['-', '/', '|', '\\'])
-
-    if logger is None or not conf:
-        print("init:  no valid conf or logger passed.  Exiting.")
-        sys.exit(1)
-    logger.info("Setting up a new Kamina instance...")
-
+    """Setup a new kamina-community node"""
+    verbose = ctx.obj['CONF']['verbose']
     try:
-        daemon = Kamina.KaminaInstance(conf, logger)
-    except Exception as e:
-        print(e)
-        sys.exit(1)
+        ctx.obj["BASIC_COMMANDS"].setup_community_node(download_ipfs)
+    except Exception as error:
+        if verbose:
+            print(error)
+        else:
+            print("There was a problem setting up the node, use --verbose for more information.")
 
-    try:
-        setup_thread = threading.Thread(target=Kamina.setup, args=(daemon, download_ipfs))
-        signal.signal(signal.SIGINT, signal_thunk)
-        setup_thread.start()
-
-        #If we're running in production, give a nice fidget spinner
-        if not conf["verbose"]:
-            print("Setting up a new Kamina instance....", end='', flush=True)
-            while daemon.running:
-                sys.stdout.write(next(spinner))
-                sys.stdout.write('\b')
-                sys.stdout.flush()
-    except KeyboardInterrupt:
-        daemon.running = False
-        sys.stdout.write("\baborted!")
-        sys.stdout.flush()
-    except Exception as e:
-        sys.stdout.write("\bfailed!")
-        sys.stdout.write("\n%s" % e)
-        sys.stdout.flush()
-    else:
-        setup_thread.join()
-        sys.stdout.write("\bdone!")
-        sys.stdout.flush()
-
-    sys.exit(0)
 
 @main.command()
-def daemon() -> None:
-    """Run the Kamina service as a daemon"""
-    pass
-
-@main.command(short_help="Manually create a post",
-              help="Manually create a post identified by <postid>")
-@click.argument("postid", metavar="<postid>")
-def create(postid) -> None:
-    pass
-
-@main.command(short_help="Manually delete a post",
-              help="Manually delete a post identified by <postid>")
-@click.argument("postid", metavar="<postid>")
-def delete(postid) -> None:
-    pass
-
-@main.command()
-def archive() -> None:
-    """Set all posts to expire"""
-    pass
-
-@main.command(short_help="Reload system modules")
-@click.argument("module", default=None, required=False, nargs=1)
-def reload(module) -> None:
-    """Valid modules are [posts|media|net] or blank to reload all"""
-    pass
-
-@main.command()
-@click.argument('topic', default=None, required=False, nargs=1)
 @click.pass_context
-def help(ctx, topic) -> None:
-    """Print this help message and exit"""
-    if topic is None:
-        click.echo(ctx.parent.get_help())
-    else:
-        click.echo(main.commands[topic].get_help(ctx))
+def daemon(ctx) -> None:
+    """Initialize the kamina-community daemon"""
+    ctx.obj["ADVANCED_COMMANDS"].start_community_daemon()
 
 
 if __name__ == "__main__":
