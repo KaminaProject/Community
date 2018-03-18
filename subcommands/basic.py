@@ -44,7 +44,7 @@ class BasicCommands:
         if self.verbose:
             print(message)
 
-    def install_ipfs(self, extract_dir) -> None:
+    def __install_ipfs(self, install_dir) -> None:
         """
         Download the correct ipfs binary for your platform
         :return: None
@@ -80,7 +80,7 @@ class BasicCommands:
 
         # Extract it
         self.verbose_only("Extracting downloaded binary...")
-        shutil.unpack_archive(temp_dl_file_location, extract_dir)
+        shutil.unpack_archive(temp_dl_file_location, install_dir)
 
     def setup_community_node(self, download_ipfs: bool) -> None:
         """
@@ -112,7 +112,7 @@ class BasicCommands:
 
         # Only download if the folder go-ipfs doesnt exist already
         if download_ipfs and not os.path.exists(str(PurePath(community_dir_path, "go-ipfs"))):
-            self.install_ipfs(community_dir_path)
+            self.__install_ipfs(community_dir_path)
 
         # Now initialize the ipfs node
         binary_location = "ipfs"  # >implying ipfs is in the PATH

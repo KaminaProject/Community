@@ -29,7 +29,7 @@ import json
 import logging
 import logging.config
 
-import commands
+import subcommands
 import click
 
 
@@ -115,8 +115,8 @@ def main(ctx, verbose, debug, log, config) -> None:
     # Now, propogate the context for our sub-commands
     ctx.obj["CONF"] = conf
     ctx.obj["LOG"] = logger
-    ctx.obj["BASIC_COMMANDS"] = commands.BasicCommands(ctx)
-    ctx.obj["ADVANCED_COMMANDS"] = commands.AdvancedCommands()
+    ctx.obj["BASIC_COMMANDS"] = subcommands.BasicCommands(ctx)
+    ctx.obj["ADVANCED_COMMANDS"] = subcommands.AdvancedCommands()
 
 
 @main.command()
