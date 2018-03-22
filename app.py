@@ -24,21 +24,12 @@ attributes of internal classes.
 """
 
 import os
+from pathlib import Path
 
 import subcommands
 import click
 import toml
 import colorama
-
-GLOBAL_OPTIONS = [
-    click.option("--verbose", default=False, is_flag=True, help="Print all log messages to console")
-]
-
-
-def global_options(func):
-    for option in reversed(GLOBAL_OPTIONS):
-        func = option(func)
-    return func
 
 
 def load_config(filename="config.toml") -> dict:
@@ -58,14 +49,27 @@ def load_config(filename="config.toml") -> dict:
 
     return config
 
+
+def parse_config_variables(config: dict) -> dict:
+    for key, value in config.items():
+        if isinstance(value, dict):
+            parse_config_variables(value)
+        else:
+            if isinstance(value, str):
+                if value.find("${HOME}") != -1:
+                    config[key] = value.replace("${HOME}", str(Path.home()))
+    return config
+
 # I have a low opinion of sigils, so function decorators have always looked
 # like pythonic cancer.  Despite that, I've gotta admit the Click framework
 # makes writing these cli apps insanely easy, so... I'll roll with it.
 
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
-@click.version_option(version=0.1, prog_name="kamina")
-@global_options
+@click.version_option(version=0.1, prog_name="Kamina Community")
+@click.option("--verbose", default=False,
+              is_flag=True,
+              help="Print all log messages to console, must be before any subcommand")
 @click.option("--config", "-c", default="config.toml",
               type=click.Path(exists=True),
               help="Specify alternate configuration file")
@@ -84,20 +88,23 @@ def main(ctx, verbose, config) -> None:
     if verbose:
         conf["verbose"] = True
 
+    # Replace some variables in config, mainly ${HOME} and ${NODEDIR}
+    conf = parse_config_variables(conf)
+
     # Now, propogate the context for our sub-commands
     ctx.obj["CONF"] = conf
-    ctx.obj["BASIC_COMMANDS"] = subcommands.BasicCommands(ctx)
-    ctx.obj["ADVANCED_COMMANDS"] = subcommands.AdvancedCommands(ctx)
+    ctx.obj["BASIC_COMMANDS"] = subcommands.BasicCommands(ctx.obj["CONF"])
+    ctx.obj["ADVANCED_COMMANDS"] = subcommands.AdvancedCommands(ctx.obj["CONF"])
 
 
 @main.command()
-@global_options
-@click.option("--download-ipfs", is_flag=True, help="Download ipfs using this script.")
+@click.option("--install-ipfs", is_flag=True, help="Install ipfs locally for this platform.")
 @click.pass_context
-def init(ctx, verbose, download_ipfs) -> None:
+def init(ctx, install_ipfs) -> None:
     """Setup a new community node"""
+    verbose = ctx.obj["CONF"]["verbose"]
     try:
-        ctx.obj["BASIC_COMMANDS"].setup_community_node(download_ipfs)
+        ctx.obj["BASIC_COMMANDS"].setup_community_node(install_ipfs)
     except Exception as error:
         if verbose:
             print(error)
@@ -106,9 +113,8 @@ def init(ctx, verbose, download_ipfs) -> None:
 
 
 @main.command()
-@global_options
 @click.pass_context
-def daemon(ctx, verbose) -> None:
+def daemon(ctx) -> None:
     """Initialize a community daemon"""
     ctx.obj["ADVANCED_COMMANDS"].start_community_daemon()
 
