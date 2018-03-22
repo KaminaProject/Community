@@ -15,9 +15,20 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+"""
+utils.py - Handy utility methods
+"""
+
 from pprint import pprint
 from inspect import getmembers
+from colorama import Style
 
 
-def var_dump(var):
+def var_dump(var: object) -> None:
+    """ Mimmic PHP's var_dump"""
     pprint(getmembers(var))
+
+
+def bright_msg(message: str) -> str:
+    """Add escape characters to message for bold printing"""
+    return Style.BRIGHT + message + Style.RESET_ALL
