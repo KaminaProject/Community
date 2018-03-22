@@ -1,0 +1,27 @@
+##############################################
+#                                            #
+#       Kamina Community configuration       #
+#                                            #
+##############################################
+
+## This is an example configuration file.
+## You should adjust it to your needs, and save it as "config.toml"
+
+###################################
+#      Global configuration       #
+###################################
+
+## Some variables will be replaced with their real value.
+## ${HOME} -> Your home directory
+
+# Debugging config
+verbose = false
+debug = false
+
+
+[general_information]
+node_directory = "${HOME}/.kamina/community"
+
+
+[local_ipfs_install]
+directory = "${HOME}/.kamina/go-ipfs"
