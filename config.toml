@@ -1,0 +1,12 @@
+# Some configuration for the community node
+
+verbose = true
+
+
+[general_information]
+node_directory = "${HOME}/.kamina/community/"
+
+
+[local_ipfs_install]
+directory = "${HOME}/.kamina/go-ipfs/"
+
