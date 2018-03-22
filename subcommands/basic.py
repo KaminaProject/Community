@@ -29,6 +29,7 @@ from pathlib import Path, PurePath
 
 import requests
 from tqdm import tqdm
+from .utils import bright_msg
 
 
 class BasicCommands:
@@ -39,7 +40,7 @@ class BasicCommands:
 
     def __verbose_only(self, message: str) -> None:
         """
-        Print message only if the --verbose flag was passed
+        Print a message only if the --verbose flag was passed
         :param message: The message to be printed
         :return: None
         """
@@ -89,7 +90,7 @@ class BasicCommands:
                     file.write(data)
 
         # Extract it
-        self.__verbose_only("Extracting downloaded binary...")
+        self.__verbose_only(bright_msg("Extracting downloaded binary..."))
         shutil.unpack_archive(temp_dl_file_location, install_dir)
 
     def setup_community_node(self, download_ipfs: bool) -> None:
@@ -101,7 +102,7 @@ class BasicCommands:
         # This folder should be configurable in the config.json
         community_dir_path = str(PurePath(Path.home(), ".kamina-community"))
         ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
-        print("Setting up a new kamina-node in %s" % community_dir_path)
+        print(bright_msg("Setting up a new kamina-node in %s" % community_dir_path))
         # TODO: add the spinner in case --verbose is not passed
         # spinner = itertools.cycle(['-', '/', '|', '\\'])
 
@@ -127,7 +128,7 @@ class BasicCommands:
                 raise Exception("Error: kamina-community already "
                                 "initialized in '%s'" % community_dir_path)
         else:
-            self.__verbose_only("Downloading ipfs for current platform")
+            self.__verbose_only(bright_msg("Downloading ipfs for current platform"))
             # Only download if the folder go-ipfs doesnt exist already
             install_dir = str(PurePath(community_dir_path, "go-ipfs"))
             if not os.path.exists(install_dir):
