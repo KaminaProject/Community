@@ -18,10 +18,44 @@
 verbose = false
 debug = false
 
-
 [general_information]
 node_directory = "${HOME}/.kamina/community"
 
-
 [local_ipfs_install]
 directory = "${HOME}/.kamina/go-ipfs"
+
+#####################################
+#       Logging configuration       #
+#####################################
+[logging]
+version = 1
+disable_existing_loggers = false
+
+[logging.formatters.simple]
+format = "%(asctime)s - %(name)s - %(levelname)s - %(message)s"
+
+[logging.handlers.console]
+class = "logging.StreamHandler"
+level = "DEBUG"
+formatter = "simple"
+stream = "ext://sys.stdout"
+
+[logging.handlers.file]
+class = "logging.handlers.RotatingFileHandler"
+level = "INFO"
+formatter = "simple"
+filename = "kamina.log"
+maxBytes = 10485760
+backupCount = 20
+encoding = "utf8"
+
+[logging.handlers.syslog]
+class = "logging.handlers.SysLogHandler"
+level = "INFO"
+formatter = "simple"
+address = "/dev/log"
+
+[logging.root]
+level = "INFO"
+handlers = ["syslog"]
+propagate = false
