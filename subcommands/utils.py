@@ -21,7 +21,7 @@ utils.py - Handy utility methods
 
 from pprint import pprint
 from inspect import getmembers
-from colorama import Style
+from colorama import Style, Fore
 
 
 def var_dump(var: object) -> None:
@@ -32,3 +32,7 @@ def var_dump(var: object) -> None:
 def bright_msg(message: str) -> str:
     """Add escape characters to message for bold printing"""
     return Style.BRIGHT + message + Style.RESET_ALL
+
+
+def error_msg() -> str:
+    return Style.BRIGHT + Fore.RED + "[ERROR]" + Style.RESET_ALL
