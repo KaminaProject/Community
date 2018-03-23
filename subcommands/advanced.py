@@ -17,8 +17,8 @@
 
 
 class AdvancedCommands:
-    def __init__(self, context):
-        self.verbose = context.obj['CONF']['verbose']
+    def __init__(self, settings):
+        self.verbose = settings['verbose']
 
     def start_community_daemon(self):
         print("Starting daemon...")

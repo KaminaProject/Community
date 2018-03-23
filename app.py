@@ -98,7 +98,7 @@ def main(ctx, verbose, config) -> None:
 
 
 @main.command()
-@click.option("--install-ipfs", is_flag=True, help="Install ipfs locally for this platform.")
+@click.option("--install-ipfs", is_flag=True, help="Install ipfs locally.")
 @click.pass_context
 def init(ctx, install_ipfs) -> None:
     """Setup a new community node"""
