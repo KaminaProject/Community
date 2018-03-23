@@ -24,12 +24,21 @@ attributes of internal classes.
 """
 
 import os
+import sys
+import logging
+import logging.config
+import logging.handlers
+import threading
+import itertools
+import signal
 from pathlib import Path
 
-import subcommands
 import click
 import toml
 import colorama
+
+import subcommands
+import kamina
 
 
 def load_config(filename="config.toml") -> dict:
@@ -70,29 +79,62 @@ def parse_config_variables(config: dict) -> dict:
 @click.option("--verbose", default=False,
               is_flag=True,
               help="Print all log messages to console, must be before any subcommand")
+@click.option("--debug", default=False, is_flag=True,
+              help="Enable debugging")
+@click.option("--log", "-l", default=None, type=click.Path(),
+              help="Redirect logging location")
 @click.option("--config", "-c", default="config.toml",
               type=click.Path(exists=True),
               help="Specify alternate configuration file")
 @click.pass_context
-def main(ctx, verbose, config) -> None:
+def main(ctx, verbose, debug, log, config) -> None:
     """The Kamina service utility"""
     conf = load_config(config)
     colorama.init()  # Initialize colorama
+    handlers = []
+
+    if "logging" in conf:
+        logging.config.dictConfig(conf["logging"])
+
+    handlers.append(logging.StreamHandler(sys.stdout))
 
     # There might not have been any configuration loaded, so let's at least set
     # a baseline - these two values should at least be known.
+    if "debug" not in conf:
+        conf["debug"] = debug
     if "verbose" not in conf:
         conf["verbose"] = verbose
 
     # Now override the config file defaults with any command line options
-    if verbose:
-        conf["verbose"] = True
+    if debug:
+        conf["debug"] = True
+        logging.basicConfig(level=logging.DEBUG)
+    else:
+        logging.basicConfig(level=logging.INFO)
+    logger = logging.getLogger(__name__)
 
     # Replace some variables in config, mainly ${HOME} and ${NODEDIR}
     conf = parse_config_variables(conf)
 
+    # If you specified an alternate log location on the command-line, use that.
+    # Otherwise, use syslog, so we at least have that, even if the config file
+    # didn't specify any logging info.
+    if log:
+        handlers.append(logging.FileHandler(log))
+    else:
+        # Make sure we're not setting up two syslog handlers
+        if not logger.handlers:
+            handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
+
+    if verbose:
+        conf["verbose"] = True
+
+    for handle in handlers:
+        logger.addHandler(handle)
+
     # Now, propogate the context for our sub-commands
     ctx.obj["CONF"] = conf
+    ctx.obj["LOG"] = logger
     ctx.obj["BASIC_COMMANDS"] = subcommands.BasicCommands(ctx.obj["CONF"])
     ctx.obj["ADVANCED_COMMANDS"] = subcommands.AdvancedCommands(ctx.obj["CONF"])
 
@@ -103,13 +145,49 @@ def main(ctx, verbose, config) -> None:
 def init(ctx, install_ipfs) -> None:
     """Setup a new community node"""
     verbose = ctx.obj["CONF"]["verbose"]
+    spinner = itertools.cycle(['-', '/', '|', '\\'])
+    logger = ctx.obj["LOG"]
+    conf = ctx.obj["CONF"]
+    signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    basic_commands = ctx.obj["BASIC_COMMANDS"]
+
+    if not logger or not conf:
+        print("Error: no valid conf or logger passed. Exiting.")
+        sys.exit(1)
+
     try:
-        ctx.obj["BASIC_COMMANDS"].setup_community_node(install_ipfs)
+        instance = kamina.KaminaInstance(conf, logger)
+        basic_commands.append_to_instance(instance)
     except Exception as error:
-        if verbose:
-            print(error)
-        else:
-            print("There was a problem setting up the node, use --verbose for more information.")
+        print(error)
+        sys.exit(1)
+
+    try:
+        setup_thread = threading.Thread(
+            target=basic_commands.setup_community_node,
+            args=(install_ipfs,))
+        signal.signal(signal.SIGINT, signal_thunk)
+        setup_thread.start()
+
+        # If we're running in production, give a nice fidget spinner
+        # if not verbose:
+        #     while instance.running:
+        #         sys.stdout.write(next(spinner))
+        #         sys.stdout.write('\b')
+        #         sys.stdout.flush()
+    except KeyboardInterrupt:
+        instance.running = False
+        sys.stdout.write("\bAborted!\n")
+        sys.stdout.flush()
+    except Exception as error:
+        sys.stdout.write("\bFailed!")
+        sys.stdout.write("\n%s" % error)
+        sys.stdout.flush()
+    else:  # No exception ocurred
+        setup_thread.join()
+        sys.stdout.flush()
+
+    sys.exit(0)
 
 
 @main.command()
