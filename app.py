@@ -29,7 +29,6 @@ import logging
 import logging.config
 import logging.handlers
 import threading
-import itertools
 import signal
 from pathlib import Path
 
@@ -39,6 +38,11 @@ import colorama
 
 import subcommands
 import kamina
+
+# Some global variables
+KAMINA_INSTANCE = None
+BASIC_COMMANDS = None
+ADVANCED_COMMANDS = None
 
 
 def load_config(filename="config.toml") -> dict:
@@ -88,6 +92,9 @@ def parse_config_variables(config: dict) -> dict:
               help="Specify alternate configuration file")
 @click.pass_context
 def main(ctx, verbose, debug, log, config) -> None:
+    global BASIC_COMMANDS
+    global ADVANCED_COMMANDS
+    global KAMINA_INSTANCE
     """The Kamina service utility"""
     conf = load_config(config)
     colorama.init()  # Initialize colorama
@@ -135,8 +142,11 @@ def main(ctx, verbose, debug, log, config) -> None:
     # Now, propogate the context for our sub-commands
     ctx.obj["CONF"] = conf
     ctx.obj["LOG"] = logger
-    ctx.obj["BASIC_COMMANDS"] = subcommands.BasicCommands(ctx.obj["CONF"])
-    ctx.obj["ADVANCED_COMMANDS"] = subcommands.AdvancedCommands(ctx.obj["CONF"])
+
+    # Give value to our globals
+    KAMINA_INSTANCE = kamina.KaminaInstance(conf, logger)
+    BASIC_COMMANDS = subcommands.BasicCommands(ctx.obj["CONF"])
+    ADVANCED_COMMANDS = subcommands.AdvancedCommands(ctx.obj["CONF"])
 
 
 @main.command()
@@ -144,19 +154,17 @@ def main(ctx, verbose, debug, log, config) -> None:
 @click.pass_context
 def init(ctx, install_ipfs) -> None:
     """Setup a new community node"""
-    verbose = ctx.obj["CONF"]["verbose"]
-    spinner = itertools.cycle(['-', '/', '|', '\\'])
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
     signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    basic_commands = ctx.obj["BASIC_COMMANDS"]
+    basic_commands = BASIC_COMMANDS
+    instance = KAMINA_INSTANCE
 
     if not logger or not conf:
         print("Error: no valid conf or logger passed. Exiting.")
         sys.exit(1)
 
     try:
-        instance = kamina.KaminaInstance(conf, logger)
         basic_commands.append_to_instance(instance)
     except Exception as error:
         print(error)
@@ -168,13 +176,6 @@ def init(ctx, install_ipfs) -> None:
             args=(install_ipfs,))
         signal.signal(signal.SIGINT, signal_thunk)
         setup_thread.start()
-
-        # If we're running in production, give a nice fidget spinner
-        # if not verbose:
-        #     while instance.running:
-        #         sys.stdout.write(next(spinner))
-        #         sys.stdout.write('\b')
-        #         sys.stdout.flush()
     except KeyboardInterrupt:
         instance.running = False
         sys.stdout.write("\bAborted!\n")
@@ -194,7 +195,9 @@ def init(ctx, install_ipfs) -> None:
 @click.pass_context
 def daemon(ctx) -> None:
     """Initialize a community daemon"""
-    ctx.obj["ADVANCED_COMMANDS"].start_community_daemon()
+    advanced_commands = ADVANCED_COMMANDS
+    advanced_commands.append_to_instance(KAMINA_INSTANCE)
+    advanced_commands.start_community_daemon()
 
 
 if __name__ == "__main__":
