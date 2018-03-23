@@ -15,10 +15,25 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import logging
 
-class AdvancedCommands:
+import backend
+from .cmd import Command
+
+
+class AdvancedCommands(Command):
     def __init__(self, settings):
-        self.verbose = settings['verbose']
+        super().__init__(settings)
+        self.backend = backend.API()
 
     def start_community_daemon(self):
-        print("Starting daemon...")
+        # Replace flask's logger with our own logger
+        flask_log = logging.getLogger("werkzeug")
+        flask_log.setLevel(logging.DEBUG)
+        # self.print_info("Starting community daemon...")
+        # self.print_verbose("Starting api server on http://localhost:1337/api/")
+        self.backend.run(port=1337, debug=True)
+        # if self.verbose:
+        #     self.backend.app.run(port=1337, debug=True)
+        # else:
+        #     self.backend.app.run(port=1337)
