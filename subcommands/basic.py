@@ -25,19 +25,83 @@ import tempfile
 import shutil
 import shlex
 import subprocess
+import sys
 from pathlib import PurePath
 
 import requests
 from tqdm import tqdm
-from .utils import bright_msg
+from .utils import bright_msg, error_msg
+
+from kamina import KaminaInstance
 
 
 class BasicCommands:
     """Basic commands for managing the -community node."""
-
     def __init__(self, settings: dict):
         self.settings = settings
         self.verbose = settings.get("verbose")
+        self.instance = None
+
+    def append_to_instance(self, instance: KaminaInstance) -> None:
+        self.instance = instance
+
+    def setup_community_node(self, install_ipfs: bool) -> None:
+        """
+        Setup a new kamina-community node
+        :param install_ipfs: Whether to download ipfs using this script
+        :return: None
+        """
+        community_dir_path = self.settings["general_information"]["node_directory"]
+        ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
+        self.__print_info("Setting up a new kamina-node in %s" % community_dir_path)
+
+        # Try to create the folder in which kamina-community will reside
+        try:
+            os.makedirs(community_dir_path)
+        except OSError:
+            pass
+
+        # Try to initilize the community dir path
+        if not install_ipfs:
+            if self.verbose:
+                return_code = subprocess.run(" ".join(ipfs_init_command),
+                                             shell=True).returncode
+            else:
+                return_code = subprocess.run(" ".join(ipfs_init_command),
+                                             shell=True, stdout=subprocess.PIPE).returncode
+            if return_code == 127:  # Command not found
+                self.__print_error("It looks like ipfs is not in your PATH, "
+                                   "add flag --install-ipfs to install ipfs locally.")
+            elif return_code == 1:  # ipfs node alredy exists
+                self.__print_error("Community node already "
+                                   "initialized in '%s'" % community_dir_path)
+        else:
+            self.__verbose_only("Downloading ipfs for current platform")
+            # Only download if the folder go-ipfs doesnt exist already
+            install_dir = str(PurePath(self.settings["local_ipfs_install"]["directory"]))
+            if not os.path.exists(install_dir):
+                self.__install_ipfs(install_dir)
+            else:
+                self.__print_error("Directory '%s' already exists, "
+                                   "aborting download" % install_dir)
+
+            # Now initialize the ipfs node with the downloaded binary
+            ipfs_init_command[1] = shlex.quote(str(PurePath(
+                self.settings["local_ipfs_install"]["directory"],
+                "ipfs"
+            )))
+            if self.verbose:
+                return_code = subprocess.run(" ".join(ipfs_init_command),
+                                             shell=True).returncode
+            else:
+                return_code = subprocess.run(" ".join(ipfs_init_command),
+                                             shell=True, stdout=subprocess.PIPE).returncode
+            if return_code == 1:  # ipfs node alredy exists
+                self.__print_error("Community node already "
+                                   "initialized in '%s'" % community_dir_path)
+
+        # Print friendly message if everything went all right
+        self.__print_info("Finished setting up kamina-community node.")
 
     def __verbose_only(self, message: str) -> None:
         """
@@ -46,7 +110,14 @@ class BasicCommands:
         :return: None
         """
         if self.verbose:
-            print(bright_msg("[INFO]") + message)
+            self.__print_info(message)
+
+    def __print_error(self, message: str) -> None:
+        self.instance.logger.error(error_msg() + message)
+        self.__end_execution()
+
+    def __print_info(self, message: str) -> None:
+        self.instance.logger.info(bright_msg("[INFO]") + message)
 
     def __install_ipfs(self, install_dir: str) -> None:
         """
@@ -96,61 +167,6 @@ class BasicCommands:
         self.__verbose_only("Copying files to '%s'..." % install_dir)
         shutil.copytree(str(PurePath(temp_dl_dir.name, "go-ipfs")), install_dir)
 
-    def setup_community_node(self, install_ipfs: bool) -> None:
-        """
-        Setup a new kamina-community node
-        :param install_ipfs: Whether to download ipfs using this script
-        :return: None
-        """
-        community_dir_path = self.settings["general_information"]["node_directory"]
-        ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
-        print("Setting up a new kamina-node in %s" % community_dir_path)
-
-        # Try to create the folder in which kamina-community will reside
-        try:
-            os.makedirs(community_dir_path)
-        except OSError:
-            pass
-
-        # Try to initilize the community dir path
-        if not install_ipfs:
-            if self.verbose:
-                return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True).returncode
-            else:
-                return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.PIPE).returncode
-            if return_code == 127:  # Command not found
-                raise Exception("Error: it looks like ipfs is not in your PATH, "
-                                "add flag --install-ipfs to install ipfs locally "
-                                "for this platflorm")
-            elif return_code == 1:  # ipfs node alredy exists
-                raise Exception("Error: community node already "
-                                "initialized in '%s'" % community_dir_path)
-        else:
-            self.__verbose_only("Downloading ipfs for current platform")
-            # Only download if the folder go-ipfs doesnt exist already
-            install_dir = str(PurePath(self.settings["local_ipfs_install"]["directory"]))
-            if not os.path.exists(install_dir):
-                self.__install_ipfs(install_dir)
-            else:
-                raise Exception("Error: directory '%s' already exists, "
-                                "aborting download" % install_dir)
-
-            # Now initialize the ipfs node with the downloaded binary
-            ipfs_init_command[1] = shlex.quote(str(PurePath(
-                self.settings["local_ipfs_install"]["directory"],
-                "ipfs"
-            )))
-            if self.verbose:
-                return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True).returncode
-            else:
-                return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.PIPE).returncode
-            if return_code == 1:  # ipfs node alredy exists
-                raise Exception("Error: community node already "
-                                "initialized in '%s'" % community_dir_path)
-
-        # Print friendly message if everything went all right
-        print("Finished setting up kamina-community node.")
+    def __end_execution(self) -> None:
+        self.instance.running = False
+        sys.exit(1)
