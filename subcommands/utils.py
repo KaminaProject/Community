@@ -35,4 +35,12 @@ def bright_msg(message: str) -> str:
 
 
 def error_msg() -> str:
-    return Style.BRIGHT + Fore.RED + "[ERROR]" + Style.RESET_ALL
+    return bright_msg(Fore.RED + "[ERROR] ")
+
+
+def verbose_msg() -> str:
+    return bright_msg(Fore.BLUE + "[VERBOSE] ")
+
+
+def info_msg() -> str:
+    return bright_msg(Fore.WHITE + "[INFO] ")
