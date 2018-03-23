@@ -25,25 +25,21 @@ import tempfile
 import shutil
 import shlex
 import subprocess
-import sys
 from pathlib import PurePath
 
 import requests
 from tqdm import tqdm
-from .utils import bright_msg, error_msg
 
-from kamina import KaminaInstance
+from .cmd import Command
 
 
-class BasicCommands:
+class BasicCommands(Command):
     """Basic commands for managing the -community node."""
     def __init__(self, settings: dict):
+        super().__init__(settings)
         self.settings = settings
         self.verbose = settings.get("verbose")
         self.instance = None
-
-    def append_to_instance(self, instance: KaminaInstance) -> None:
-        self.instance = instance
 
     def setup_community_node(self, install_ipfs: bool) -> None:
         """
@@ -53,7 +49,7 @@ class BasicCommands:
         """
         community_dir_path = self.settings["general_information"]["node_directory"]
         ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
-        self.__print_info("Setting up a new kamina-node in %s" % community_dir_path)
+        self.print_info("Setting up a new kamina-node in %s" % community_dir_path)
 
         # Try to create the folder in which kamina-community will reside
         try:
@@ -70,20 +66,20 @@ class BasicCommands:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
                                              shell=True, stdout=subprocess.PIPE).returncode
             if return_code == 127:  # Command not found
-                self.__print_error("It looks like ipfs is not in your PATH, "
-                                   "add flag --install-ipfs to install ipfs locally.")
+                self.print_error("It looks like ipfs is not in your PATH, "
+                                 "add flag --install-ipfs to install ipfs locally.")
             elif return_code == 1:  # ipfs node alredy exists
-                self.__print_error("Community node already "
-                                   "initialized in '%s'" % community_dir_path)
+                self.print_error("Community node already "
+                                 "initialized in '%s'" % community_dir_path)
         else:
-            self.__verbose_only("Downloading ipfs for current platform")
+            self.print_verbose("Downloading ipfs for current platform")
             # Only download if the folder go-ipfs doesnt exist already
             install_dir = str(PurePath(self.settings["local_ipfs_install"]["directory"]))
             if not os.path.exists(install_dir):
                 self.__install_ipfs(install_dir)
             else:
-                self.__print_error("Directory '%s' already exists, "
-                                   "aborting download" % install_dir)
+                self.print_error("Directory '%s' already exists, "
+                                 "aborting download" % install_dir)
 
             # Now initialize the ipfs node with the downloaded binary
             ipfs_init_command[1] = shlex.quote(str(PurePath(
@@ -97,27 +93,11 @@ class BasicCommands:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
                                              shell=True, stdout=subprocess.PIPE).returncode
             if return_code == 1:  # ipfs node alredy exists
-                self.__print_error("Community node already "
-                                   "initialized in '%s'" % community_dir_path)
+                self.print_error("Community node already "
+                                 "initialized in '%s'" % community_dir_path)
 
         # Print friendly message if everything went all right
-        self.__print_info("Finished setting up kamina-community node.")
-
-    def __verbose_only(self, message: str) -> None:
-        """
-        Print a message only if the --verbose flag was passed
-        :param message: The message to be printed
-        :return: None
-        """
-        if self.verbose:
-            self.__print_info(message)
-
-    def __print_error(self, message: str) -> None:
-        self.instance.logger.error(error_msg() + message)
-        self.__end_execution()
-
-    def __print_info(self, message: str) -> None:
-        self.instance.logger.info(bright_msg("[INFO]") + message)
+        self.print_info("Finished setting up kamina-community node.")
 
     def __install_ipfs(self, install_dir: str) -> None:
         """
@@ -162,11 +142,7 @@ class BasicCommands:
                     file.write(data)
 
         # Extract it
-        self.__verbose_only("Extracting downloaded binary...")
+        self.print_verbose("Extracting downloaded binary...")
         shutil.unpack_archive(temp_dl_file_location, temp_dl_dir.name)
-        self.__verbose_only("Copying files to '%s'..." % install_dir)
+        self.print_verbose("Copying files to '%s'..." % install_dir)
         shutil.copytree(str(PurePath(temp_dl_dir.name, "go-ipfs")), install_dir)
-
-    def __end_execution(self) -> None:
-        self.instance.running = False
-        sys.exit(1)
