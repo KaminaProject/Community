@@ -17,6 +17,7 @@
 # Debugging config
 verbose = false
 debug = false
+enable_ipfs = true
 
 [general_information]
 node_directory = "${HOME}/.kamina/community"
