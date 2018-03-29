@@ -30,19 +30,18 @@ import logging.config
 import logging.handlers
 import threading
 import signal
+import importlib
 from pathlib import Path
 
 import click
 import toml
 import colorama
 
-import subcommands
-import kamina
+from core.instance import KaminaInstance
 
 # Some global variables
 KAMINA_INSTANCE = None
-BASIC_COMMANDS = None
-ADVANCED_COMMANDS = None
+CLI_COMMANDS = None
 
 
 def load_config(filename="config.toml") -> dict:
@@ -92,8 +91,7 @@ def parse_config_variables(config: dict) -> dict:
               help="Specify alternate configuration file")
 @click.pass_context
 def main(ctx, verbose, debug, log, config) -> None:
-    global BASIC_COMMANDS
-    global ADVANCED_COMMANDS
+    global CLI_COMMANDS
     global KAMINA_INSTANCE
     """The Kamina service utility"""
     conf = load_config(config)
@@ -111,6 +109,8 @@ def main(ctx, verbose, debug, log, config) -> None:
         conf["debug"] = debug
     if "verbose" not in conf:
         conf["verbose"] = verbose
+    if "enable_ipfs" not in conf:
+        conf["enable_ipfs"] = True
 
     # Now override the config file defaults with any command line options
     if debug:
@@ -144,9 +144,11 @@ def main(ctx, verbose, debug, log, config) -> None:
     ctx.obj["LOG"] = logger
 
     # Give value to our globals
-    KAMINA_INSTANCE = kamina.KaminaInstance(conf, logger)
-    BASIC_COMMANDS = subcommands.BasicCommands(ctx.obj["CONF"])
-    ADVANCED_COMMANDS = subcommands.AdvancedCommands(ctx.obj["CONF"])
+    KAMINA_INSTANCE = KaminaInstance(conf, logger)
+    if not conf["enable_ipfs"]:
+        CLI_COMMANDS = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(conf)
+    else:
+        CLI_COMMANDS = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
 
 
 @main.command()
@@ -157,7 +159,7 @@ def init(ctx, install_ipfs) -> None:
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
     signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    basic_commands = BASIC_COMMANDS
+    cli_commands = CLI_COMMANDS
     instance = KAMINA_INSTANCE
 
     if not logger or not conf:
@@ -165,14 +167,14 @@ def init(ctx, install_ipfs) -> None:
         sys.exit(1)
 
     try:
-        basic_commands.append_to_instance(instance)
+        cli_commands.register_instance(instance)
     except Exception as error:
         print(error)
         sys.exit(1)
 
     try:
         setup_thread = threading.Thread(
-            target=basic_commands.setup_community_node,
+            target=cli_commands.init,
             args=(install_ipfs,))
         signal.signal(signal.SIGINT, signal_thunk)
         setup_thread.start()
@@ -195,9 +197,8 @@ def init(ctx, install_ipfs) -> None:
 @click.pass_context
 def daemon(ctx) -> None:
     """Initialize a community daemon"""
-    advanced_commands = ADVANCED_COMMANDS
-    advanced_commands.append_to_instance(KAMINA_INSTANCE)
-    advanced_commands.start_community_daemon()
+    cli_commands = CLI_COMMANDS
+    cli_commands.daemon()
 
 
 if __name__ == "__main__":
