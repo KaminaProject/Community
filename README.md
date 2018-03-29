@@ -1,6 +1,6 @@
 # Kamina Community
 <p align="center">
-    <img src="kamina_logo.svg" width="400"/>
+    <img src="logo/kamina.svg" width="400"/>
 </p>
 
 Kamina's community node implementation in python 
