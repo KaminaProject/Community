@@ -29,10 +29,10 @@ from utils.logger import Logger
 from backend.api import API
 
 
-class AdvancedCommands():
+class AdvancedCommands:
     """Manage advanced cli commands"""
     def __init__(self, settings: dict, logger: Logger):
-        self.backend = API().app
+        self.backend = API(settings, logger).app
         self.logger = logger
         self.settings = settings
         self.verbose = settings.get("verbose")
@@ -67,7 +67,9 @@ class AdvancedCommands():
 
     def start_community_daemon(self):
         self.logger.print_info("Starting community damon in http://localhost:1337/api")
-        community_dir_path = self.settings["general_information"]["node_directory"]
+        community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
+        ipfs_binary = "ipfs"
+
         try:
             ipfs_binary = self.__get_ipfs_bin_path()
         except FileNotFoundError:
@@ -79,7 +81,7 @@ class AdvancedCommands():
             ipfs_command = "IPFS_PATH=%s %s daemon &> /dev/null" % (community_dir_path, ipfs_binary)
 
         api_thread = threading.Thread(
-            target=self.backend.run, kwargs={"port":1337})  # TODO: Fix logging with flask
+            target=self.backend.run, kwargs={"port": 1337})  # TODO: Fix logging with flask
         ipfs_thread = threading.Thread(
             target=subprocess.run, args=(ipfs_command,),
             kwargs={"shell": True})
@@ -92,7 +94,7 @@ class AdvancedCommands():
             # self.logger.print_info("Done starting community daemon, api server listening on "
             #                       "http://localhost:1337/api")
         except RuntimeError as error:
-            self.logger.print_verbose(error)
+            self.logger.print_verbose(str(error))
             self.logger.print_error("There was an error starting the community daemon")
         else:
             api_thread.join()
