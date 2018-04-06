@@ -18,11 +18,14 @@
 
 from flask import Flask
 
+from backend.storage.storage import Storage
+from utils.logger import Logger
+
 
 class API:
     app = Flask(__name__)
 
-    def __init__(self):
+    def __init__(self, settings: dict, logger: Logger):
         # Routes
         routes = [
             {
@@ -34,11 +37,33 @@ class API:
                 "r": "/api/",
                 "m": ["GET"],
                 "f": self.index
+            },
+            {
+                "r": "/api/make_post",
+                "m": ["POST"],
+                "f": self.make_post
+            },
+            {
+                "r": "/api/make_response",
+                "m": ["POST"],
+                "f": self.make_response
+            },
+            {
+                "r": "/api/get_single_thread",
+                "m": ["GET"],
+                "f": self.get_single_thread
+            },
+            {
+                "r": "/api/get_all_threads",
+                "m": ["GET"],
+                "f": self.get_all_threads
             }
         ]
 
         for route in routes:
             self.add_route(route)
+
+        self.storage = Storage(settings, logger)
 
     def add_route(self, route):
         self.app.add_url_rule(route["r"], view_func=route["f"], methods=route["m"])
@@ -46,3 +71,15 @@ class API:
     @staticmethod
     def index():
         return "Hello there!\n"
+
+    def make_post(self):
+        pass
+
+    def make_response(self):
+        pass
+
+    def get_all_threads(self):
+        pass
+
+    def get_single_thread(self):
+        pass
