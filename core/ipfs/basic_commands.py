@@ -32,6 +32,7 @@ from tqdm import tqdm
 
 from utils.logger import Logger
 
+
 class BasicCommands:
     """Basic commands for managing the -community node."""
     def __init__(self, settings: dict, logger: Logger):

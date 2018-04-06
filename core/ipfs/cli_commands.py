@@ -44,4 +44,3 @@ class CliCommands:
 
     def daemon(self):
         self.adv_cmd.start_community_daemon()
-        
