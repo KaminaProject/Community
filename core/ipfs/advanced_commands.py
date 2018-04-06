@@ -35,6 +35,7 @@ class AdvancedCommands():
         self.backend = API().app
         self.logger = logger
         self.settings = settings
+        self.verbose = settings.get("verbose")
         self.__disable_flask_logger()
 
     @staticmethod
@@ -55,7 +56,7 @@ class AdvancedCommands():
 
         if not ipfs_in_path:
             try:
-                subprocess.run([str(PurePath(local_ipfs_dir, "ipfs"))])
+                subprocess.run([str(PurePath(local_ipfs_dir, "ipfs"))], stdout=subprocess.PIPE)
             except FileNotFoundError:
                 self.logger.print_verbose("IPFS not found in the local install directory")
                 raise FileNotFoundError
@@ -65,25 +66,31 @@ class AdvancedCommands():
         return bin_path
 
     def start_community_daemon(self):
-        self.logger.print_info("Starting community damon")
+        self.logger.print_info("Starting community damon in http://localhost:1337/api")
         community_dir_path = self.settings["general_information"]["node_directory"]
         try:
             ipfs_binary = self.__get_ipfs_bin_path()
         except FileNotFoundError:
             self.logger.print_error("Unable to locate IPFS, aborting")
-        ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
+
+        if self.verbose:
+            ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
+        else:
+            ipfs_command = "IPFS_PATH=%s %s daemon &> /dev/null" % (community_dir_path, ipfs_binary)
+
         api_thread = threading.Thread(
             target=self.backend.run, kwargs={"port":1337})  # TODO: Fix logging with flask
         ipfs_thread = threading.Thread(
             target=subprocess.run, args=(ipfs_command,),
             kwargs={"shell": True})
+
         try:
             self.logger.print_verbose("Starting flask api server")
             api_thread.start()
             self.logger.print_verbose("Starting ipfs daemon")
             ipfs_thread.start()
-            self.logger.print_info("Done starting community daemon, api server listening on"
-                                   "http://localhost:1337/api")
+            # self.logger.print_info("Done starting community daemon, api server listening on "
+            #                       "http://localhost:1337/api")
         except RuntimeError as error:
             self.logger.print_verbose(error)
             self.logger.print_error("There was an error starting the community daemon")
