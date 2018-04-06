@@ -150,6 +150,13 @@ def main(ctx, verbose, debug, log, config) -> None:
     else:
         CLI_COMMANDS = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
 
+    # Register instance
+    try:
+        CLI_COMMANDS.register_instance(KAMINA_INSTANCE)
+    except Exception as error:
+        print(error)
+        sys.exit(1)
+
 
 @main.command()
 @click.option("--install-ipfs", is_flag=True, help="Install ipfs locally.")
@@ -164,12 +171,6 @@ def init(ctx, install_ipfs) -> None:
 
     if not logger or not conf:
         print("Error: no valid conf or logger passed. Exiting.")
-        sys.exit(1)
-
-    try:
-        cli_commands.register_instance(instance)
-    except Exception as error:
-        print(error)
         sys.exit(1)
 
     try:
