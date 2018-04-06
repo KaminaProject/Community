@@ -121,9 +121,9 @@ class BasicCommands:
             arch = "386"
 
         temp_dl_dir = tempfile.TemporaryDirectory()
-        temp_dl_filename = "go-ipfs_v0.4.13_%s-%s.%s" % (system, arch, extension)
+        temp_dl_filename = "go-ipfs_v0.4.14_%s-%s.%s" % (system, arch, extension)
         temp_dl_file_location = str(PurePath(temp_dl_dir.name, temp_dl_filename))
-        download_url = "https://dist.ipfs.io/go-ipfs/v0.4.13/%s" % temp_dl_filename
+        download_url = "https://dist.ipfs.io/go-ipfs/v0.4.14/%s" % temp_dl_filename
         # Now download the file
         response = requests.get(download_url, stream=True)
         total_size = int(response.headers.get("content-length", 0))
