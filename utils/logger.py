@@ -30,7 +30,8 @@ class Logger:
         self.instance = instance
 
     def print_verbose(self, message: str) -> None:
-        self.instance.logger.info(self.__verbose_msg() + message)
+        if self.instance.verbose:
+            self.instance.logger.info(self.__verbose_msg() + message)
 
     def print_error(self, message: str) -> None:
         self.instance.logger.error(self.__error_msg() + message)
