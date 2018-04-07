@@ -90,7 +90,7 @@ class BasicCommands:
                                              shell=True).returncode
             else:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.PIPE).returncode
+                                             shell=True, stdout=subprocess.DEVNULL).returncode
             if return_code == 1:  # ipfs node alredy exists
                 self.logger.print_error("Community node already "
                                         "initialized in '%s'" % community_dir_path)
