@@ -25,9 +25,9 @@ class Storage:
         self.settings = settings
         self.logger = logger
         if not settings["enable_ipfs"]:
-            self.engine = importlib.import_module("backend.storage.non-ipfs").Engine(settings)
+            self.engine = importlib.import_module("backend.storage.non-ipfs.engine").Engine(settings)
         else:
-            self.engine = importlib.import_module("backend.storage.ipfs").Engine(settings)
+            self.engine = importlib.import_module("backend.storage.ipfs.engine").Engine(settings)
 
     def make_thread(self):
         pass
