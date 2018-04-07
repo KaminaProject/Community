@@ -39,10 +39,6 @@ import colorama
 
 from core.instance import KaminaInstance
 
-# Some global variables
-KAMINA_INSTANCE = None
-CLI_COMMANDS = None
-
 
 def load_config(filename="config.toml") -> dict:
     """
@@ -63,6 +59,10 @@ def load_config(filename="config.toml") -> dict:
 
 
 def parse_config_variables(config: dict) -> dict:
+    """
+    Replace some variables in the config dict:
+    It only replaces ${HOME} for now
+    """
     for key, value in config.items():
         if isinstance(value, dict):
             parse_config_variables(value)
@@ -91,8 +91,6 @@ def parse_config_variables(config: dict) -> dict:
               help="Specify alternate configuration file")
 @click.pass_context
 def main(ctx, verbose, debug, log, config) -> None:
-    global CLI_COMMANDS
-    global KAMINA_INSTANCE
     """The Kamina service utility"""
     conf = load_config(config)
     colorama.init()  # Initialize colorama
@@ -101,7 +99,7 @@ def main(ctx, verbose, debug, log, config) -> None:
     if "logging" in conf:
         logging.config.dictConfig(conf["logging"])
 
-    handlers.append(logging.StreamHandler(sys.stdout))
+    logger = logging.getLogger("KCommunity")
 
     # There might not have been any configuration loaded, so let's at least set
     # a baseline - these two values should at least be known.
@@ -111,14 +109,6 @@ def main(ctx, verbose, debug, log, config) -> None:
         conf["verbose"] = verbose
     if "enable_ipfs" not in conf:
         conf["enable_ipfs"] = True
-
-    # Now override the config file defaults with any command line options
-    if debug:
-        conf["debug"] = True
-        logging.basicConfig(level=logging.DEBUG)
-    else:
-        logging.basicConfig(level=logging.INFO)
-    logger = logging.getLogger(__name__)
 
     # Replace some variables in config, mainly ${HOME} and ${NODEDIR}
     conf = parse_config_variables(conf)
@@ -135,27 +125,29 @@ def main(ctx, verbose, debug, log, config) -> None:
 
     if verbose:
         conf["verbose"] = True
+        logger.setLevel(logging.DEBUG)
 
     for handle in handlers:
         logger.addHandler(handle)
 
     # Now, propogate the context for our sub-commands
+    ctx.obj = {}
     ctx.obj["CONF"] = conf
     ctx.obj["LOG"] = logger
 
     # Give value to our globals
-    KAMINA_INSTANCE = KaminaInstance(conf, logger)
+    kamina_instance = KaminaInstance(conf, logger)
     if not conf["enable_ipfs"]:
-        CLI_COMMANDS = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(conf)
+        cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(conf)
     else:
-        CLI_COMMANDS = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
+        cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
 
     # Register instance
-    try:
-        CLI_COMMANDS.register_instance(KAMINA_INSTANCE)
-    except Exception as error:
-        print(error)
-        sys.exit(1)
+    cli_commands.register_instance(kamina_instance)
+
+    # Add variable to global ctx object
+    ctx.obj["CLI_COMMANDS"] = cli_commands
+    ctx.obj["KAMINA_INSTANCE"] = kamina_instance
 
 
 @main.command()
@@ -166,8 +158,8 @@ def init(ctx, install_ipfs) -> None:
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
     signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
-    cli_commands = CLI_COMMANDS
-    instance = KAMINA_INSTANCE
+    cli_commands = ctx.obj["CLI_COMMANDS"]
+    instance = ctx.obj["KAMINA_INSTANCE"]
 
     if not logger or not conf:
         print("Error: no valid conf or logger passed. Exiting.")
@@ -182,7 +174,7 @@ def init(ctx, install_ipfs) -> None:
     except KeyboardInterrupt:
         instance.running = False
         print("Aborted!")
-    except Exception as error:
+    except RuntimeError as error:
         print("Failed!")
         sys.stdout.write("\n%s" % error)
         sys.stdout.flush()
@@ -197,9 +189,8 @@ def init(ctx, install_ipfs) -> None:
 @click.pass_context
 def daemon(ctx) -> None:
     """Initialize a community daemon"""
-    cli_commands = CLI_COMMANDS
+    cli_commands = ctx.obj["CLI_COMMANDS"]
     cli_commands.daemon()
 
-
 if __name__ == "__main__":
-    main(obj={})
+    main()
