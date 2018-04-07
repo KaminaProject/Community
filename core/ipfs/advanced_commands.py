@@ -33,7 +33,7 @@ from backend.api import API
 class AdvancedCommands:
     """Manage advanced cli commands"""
     def __init__(self, settings: dict, logger: Logger):
-        self.backend = API(settings, logger).app
+        self.backend = API(settings, logger)
         self.logger = logger
         self.settings = settings
         self.verbose = settings.get("verbose")
@@ -78,7 +78,7 @@ class AdvancedCommands:
 
         ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
         api_thread = Process(
-            target=self.backend.run,
+            target=self.backend.app.run,
             kwargs={"port": 1337}
         ) # TODO: Fix logging with flask
         ipfs_named_args = {
@@ -103,6 +103,7 @@ class AdvancedCommands:
             ipfs_thread.start()
             # self.logger.print_info("Done starting community daemon, api server listening on "
             #                       "http://localhost:1337/api")
+            # self.backend.storage.engine.connect_ipfs()
         except RuntimeError as error:
             self.logger.print_verbose(str(error))
             self.logger.print_error("There was an error starting the community daemon")
