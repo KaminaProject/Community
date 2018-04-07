@@ -181,10 +181,9 @@ def init(ctx, install_ipfs) -> None:
         setup_thread.start()
     except KeyboardInterrupt:
         instance.running = False
-        sys.stdout.write("\bAborted!\n")
-        sys.stdout.flush()
+        print("Aborted!")
     except Exception as error:
-        sys.stdout.write("\bFailed!")
+        print("Failed!")
         sys.stdout.write("\n%s" % error)
         sys.stdout.flush()
     else:  # No exception ocurred
