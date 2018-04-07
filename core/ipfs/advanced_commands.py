@@ -23,6 +23,7 @@ import threading
 import logging
 import shlex
 import subprocess
+from multiprocessing import Process
 from pathlib import PurePath
 
 from utils.logger import Logger
@@ -56,7 +57,7 @@ class AdvancedCommands:
 
         if not ipfs_in_path:
             try:
-                subprocess.run([str(PurePath(local_ipfs_dir, "ipfs"))], stdout=subprocess.PIPE)
+                subprocess.run([str(PurePath(local_ipfs_dir, "ipfs"))], stdout=subprocess.DEVNULL)
             except FileNotFoundError:
                 self.logger.print_verbose("IPFS not found in the local install directory")
                 raise FileNotFoundError
@@ -66,7 +67,7 @@ class AdvancedCommands:
         return bin_path
 
     def start_community_daemon(self):
-        self.logger.print_info("Starting community damon in http://localhost:1337/api")
+        self.logger.print_info("Starting community daemon in http://localhost:1337/api")
         community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
         ipfs_binary = "ipfs"
 
@@ -75,16 +76,25 @@ class AdvancedCommands:
         except FileNotFoundError:
             self.logger.print_error("Unable to locate IPFS, aborting")
 
-        if self.verbose:
-            ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
-        else:
-            ipfs_command = "IPFS_PATH=%s %s daemon &> /dev/null" % (community_dir_path, ipfs_binary)
-
-        api_thread = threading.Thread(
-            target=self.backend.run, kwargs={"port": 1337})  # TODO: Fix logging with flask
-        ipfs_thread = threading.Thread(
-            target=subprocess.run, args=(ipfs_command,),
-            kwargs={"shell": True})
+        ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
+        api_thread = Process(
+            target=self.backend.run,
+            kwargs={"port": 1337}
+        ) # TODO: Fix logging with flask
+        ipfs_named_args = {
+            "shell": True,
+            "stdout": subprocess.PIPE
+        }
+        if not self.verbose:
+            ipfs_named_args["stdout"] = subprocess.DEVNULL
+        ipfs_thread = Process(
+            target=subprocess.run,
+            args=(ipfs_command,),
+            kwargs={
+                "shell": True, 
+                "stdout": ipfs_named_args
+            }
+        )
 
         try:
             self.logger.print_verbose("Starting flask api server")
@@ -96,6 +106,11 @@ class AdvancedCommands:
         except RuntimeError as error:
             self.logger.print_verbose(str(error))
             self.logger.print_error("There was an error starting the community daemon")
+        except KeyboardInterrupt:
+            self.logger.print_error("Aborted!")
+            api_thread.terminate()
+            ipfs_thread.terminate()
+            self.logger.end_execution()
         else:
             api_thread.join()
             ipfs_thread.join()
