@@ -15,7 +15,13 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+import ipfsapi
 
 class Engine:
     def __init__(self, settings: dict):
+        self.api = None
         self.setting = settings
+
+    def connect_ipfs(self):
+        self.api = ipfsapi.connect('127.0.0.1', 5001)
+    
