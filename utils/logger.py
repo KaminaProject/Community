@@ -31,14 +31,14 @@ class Logger:
 
     def print_verbose(self, message: str) -> None:
         if self.instance.verbose:
-            self.instance.logger.info(self.__verbose_msg() + message)
+            self.instance.logger.debug(message)
 
     def print_error(self, message: str) -> None:
-        self.instance.logger.error(self.__error_msg() + message)
+        self.instance.logger.error(message)
         self.end_execution()
 
     def print_info(self, message: str) -> None:
-        self.instance.logger.info(self.__info_msg() + message)
+        self.instance.logger.info(message)
         
     def end_execution(self):
         self.instance.running = False
