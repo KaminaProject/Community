@@ -25,20 +25,20 @@ import tempfile
 import shutil
 import shlex
 import subprocess
+import logging
+import sys
 from pathlib import PurePath
 
 import requests
 from tqdm import tqdm
 
-from utils.logger import Logger
-
 
 class BasicCommands:
     """Basic commands for managing the -community node."""
-    def __init__(self, settings: dict, logger: Logger):
+    def __init__(self, settings: dict):
         self.settings = settings
         self.verbose = settings.get("verbose")
-        self.logger = logger
+        self.logger = logging.getLogger("kamina")
 
     def setup_community_node(self, install_ipfs: bool) -> None:
         """
@@ -48,7 +48,7 @@ class BasicCommands:
         """
         community_dir_path = self.settings["general_information"]["node_directory"]
         ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
-        self.logger.print_info("Setting up a new community node in %s" % community_dir_path)
+        self.logger.info("Setting up a new community node in %s" % community_dir_path)
 
         # Try to create the folder in which kamina-community will reside
         try:
@@ -63,22 +63,26 @@ class BasicCommands:
                                              shell=True).returncode
             else:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.PIPE).returncode
+                                             shell=True, stdout=subprocess.DEVNULL).returncode
             if return_code == 127:  # Command not found
-                self.logger.print_error("It looks like ipfs is not in your PATH, "
-                                        "add flag --install-ipfs to install ipfs locally.")
+                self.logger.error("It looks like ipfs is not in your PATH, "
+                                  "add flag --install-ipfs to install ipfs locally.")
+                sys.exit(1)
+
             elif return_code == 1:  # ipfs node alredy exists
-                self.logger.print_error("Community node already "
-                                        "initialized in '%s'" % community_dir_path)
+                self.logger.error("Community node already "
+                                  "initialized in '%s'" % community_dir_path)
+                sys.exit(1)
         else:
-            self.logger.print_verbose("Downloading ipfs for current platform")
+            self.logger.debug("Downloading ipfs for current platform")
             # Only download if the folder go-ipfs doesnt exist already
             install_dir = str(PurePath(self.settings["local_ipfs_install"]["directory"]))
             if not os.path.exists(install_dir):
                 self.__install_ipfs(install_dir)
             else:
-                self.logger.print_error("Directory '%s' already exists, "
-                                        "aborting download" % install_dir)
+                self.logger.error("Directory '%s' already exists, "
+                                  "aborting download" % install_dir)
+                sys.exit(1)
 
             # Now initialize the ipfs node with the downloaded binary
             ipfs_init_command[1] = shlex.quote(str(PurePath(
@@ -92,11 +96,12 @@ class BasicCommands:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
                                              shell=True, stdout=subprocess.DEVNULL).returncode
             if return_code == 1:  # ipfs node alredy exists
-                self.logger.print_error("Community node already "
-                                        "initialized in '%s'" % community_dir_path)
+                self.logger.error("Community node already "
+                                  "initialized in '%s'" % community_dir_path)
+                sys.exit(1)
 
         # Print friendly message if everything went all right
-        self.logger.print_info("Finished setting up kamina-community node.")
+        self.logger.info("Finished setting up kamina-community node.")
 
     def __install_ipfs(self, install_dir: str) -> None:
         """
@@ -141,7 +146,7 @@ class BasicCommands:
                     file.write(data)
 
         # Extract it
-        self.logger.print_verbose("Extracting downloaded binary...")
+        self.logger.debug("Extracting downloaded binary...")
         shutil.unpack_archive(temp_dl_file_location, temp_dl_dir.name)
-        self.logger.print_verbose("Copying files to '%s'..." % install_dir)
+        self.logger.debug("Copying files to '%s'..." % install_dir)
         shutil.copytree(str(PurePath(temp_dl_dir.name, "go-ipfs")), install_dir)

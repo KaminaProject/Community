@@ -32,7 +32,7 @@ directory = "${HOME}/.kamina/go-ipfs"
 version = 1
 disable_existing_loggers = false
 
-[logging.loggers.KCommunity]
+[logging.loggers.kamina]
 level = "INFO"
 handlers = ["console", "file"]
 propagate = false

@@ -99,7 +99,7 @@ def main(ctx, verbose, debug, log, config) -> None:
     if "logging" in conf:
         logging.config.dictConfig(conf["logging"])
 
-    logger = logging.getLogger("KCommunity")
+    logger = logging.getLogger("kamina")
 
     # There might not have been any configuration loaded, so let's at least set
     # a baseline - these two values should at least be known.
@@ -131,9 +131,7 @@ def main(ctx, verbose, debug, log, config) -> None:
         logger.addHandler(handle)
 
     # Now, propogate the context for our sub-commands
-    ctx.obj = {}
-    ctx.obj["CONF"] = conf
-    ctx.obj["LOG"] = logger
+    ctx.obj = {"CONF": conf, "LOG": logger}
 
     # Give value to our globals
     kamina_instance = KaminaInstance(conf, logger)
@@ -141,9 +139,6 @@ def main(ctx, verbose, debug, log, config) -> None:
         cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(conf)
     else:
         cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
-
-    # Register instance
-    cli_commands.register_instance(kamina_instance)
 
     # Add variable to global ctx object
     ctx.obj["CLI_COMMANDS"] = cli_commands
@@ -174,13 +169,10 @@ def init(ctx, install_ipfs) -> None:
     except KeyboardInterrupt:
         instance.running = False
         print("Aborted!")
-    except RuntimeError as error:
+    except RuntimeError:
         print("Failed!")
-        sys.stdout.write("\n%s" % error)
-        sys.stdout.flush()
     else:  # No exception ocurred
         setup_thread.join()
-        sys.stdout.flush()
 
     sys.exit(0)
 
@@ -191,6 +183,7 @@ def daemon(ctx) -> None:
     """Initialize a community daemon"""
     cli_commands = ctx.obj["CLI_COMMANDS"]
     cli_commands.daemon()
+
 
 if __name__ == "__main__":
     main()

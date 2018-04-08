@@ -16,14 +16,13 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 import importlib
-
-from utils.logger import Logger
+import logging
 
 
 class Storage:
-    def __init__(self, settings: dict, logger: Logger):
+    def __init__(self, settings: dict):
         self.settings = settings
-        self.logger = logger
+        self.logger = logging.getLogger("kamina")
         if not settings["enable_ipfs"]:
             self.engine = importlib.import_module("backend.storage.non-ipfs.engine").Engine(settings)
         else:

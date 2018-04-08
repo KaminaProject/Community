@@ -15,17 +15,15 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
-
 from flask import Flask
 
 from backend.storage.storage import Storage
-from utils.logger import Logger
 
 
 class API:
     app = Flask(__name__)
 
-    def __init__(self, settings: dict, logger: Logger):
+    def __init__(self, settings: dict):
         # Routes
         routes = [
             {
@@ -63,7 +61,7 @@ class API:
         for route in routes:
             self.add_route(route)
 
-        self.storage = Storage(settings, logger)
+        self.storage = Storage(settings)
 
     def add_route(self, route):
         self.app.add_url_rule(route["r"], view_func=route["f"], methods=route["m"])
