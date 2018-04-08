@@ -17,6 +17,7 @@
 
 import ipfsapi
 
+
 class Engine:
     def __init__(self, settings: dict):
         self.api = None
@@ -24,4 +25,3 @@ class Engine:
 
     def connect_ipfs(self):
         self.api = ipfsapi.connect('127.0.0.1', 5001)
-    
