@@ -19,23 +19,27 @@
 advanced_commands.py - Class containing advanced command line commands
 """
 
+import threading
 import shlex
 import subprocess
 import logging
 import sys
-from multiprocessing import Process
+import time
 from pathlib import PurePath
 
 from backend.api import API
+from core.kamina import KaminaProcess
 
 
+# TODO: Fix logging with flask
 class AdvancedCommands:
     """Manage advanced cli commands"""
-    def __init__(self, settings: dict):
-        self.backend = API(settings)
+    def __init__(self, kamina_process: KaminaProcess):
+        self.settings = kamina_process.conf
+        self.backend = API(self.settings)
         self.logger = logging.getLogger("kamina")
-        self.settings = settings
-        self.verbose = settings.get("verbose")
+        self.verbose = self.settings.get("verbose")
+        self.process = kamina_process
 
     def __get_ipfs_bin_path(self):
         local_ipfs_dir = self.settings["local_ipfs_install"]["directory"]
@@ -58,7 +62,7 @@ class AdvancedCommands:
 
         return bin_path
 
-    def start_community_daemon(self):
+    def ipfs_process(self, run_event: threading.Event):
         self.logger.info("Starting community daemon in http://localhost:1337/api")
         community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
 
@@ -76,28 +80,48 @@ class AdvancedCommands:
         if not self.verbose:
             ipfs_named_args["stdout"] = subprocess.DEVNULL
 
-        ipfs_thread = Process(
-            target=subprocess.run,
-            args=(ipfs_command,),
-            kwargs=ipfs_named_args
+        ipfs_running = False
+
+        while run_event.isSet():
+            if not ipfs_running:
+                ipfs_running = True
+                subprocess.run(ipfs_command, shell=True)
+
+    def flask_process(self, run_event: threading.Event):
+        flask_running = False
+        while run_event.isSet():
+            if not flask_running:
+                flask_running = True
+                self.backend.app.run(port=1337)
+
+    def start_community_daemon(self):
+        run_event = threading.Event()
+        run_event.set()
+        ipfs_started = False
+        flask_started = False
+
+        ipfs_thread = threading.Thread(
+            target=self.ipfs_process,
+            args=(run_event,)
         )
 
-        api_thread = Process(
-            target=self.backend.app.run,
-            kwargs={"port": 1337}
-        )  # TODO: Fix logging with flask
+        api_thread = threading.Thread(
+            target=self.flask_process,
+            args=(run_event,)
+        )
 
-        try:
-            self.logger.debug("Starting flask api server")
-            api_thread.start()
-            self.logger.debug("Starting ipfs daemon")
-            ipfs_thread.start()
-        except RuntimeError as error:
-            self.logger.exception(error)
-            self.logger.error("There was an error starting the community daemon")
-        except KeyboardInterrupt:
-            api_thread.terminate()
-            ipfs_thread.terminate()
-        else:
-            api_thread.join()
-            ipfs_thread.join()
+        while True:
+            time.sleep(0.01)  # Avoid 100% CPU usage
+            if self.process.kill_now:
+                ipfs_thread.join()
+                api_thread.join()
+                run_event.clear()
+                break
+
+            if not ipfs_started:
+                ipfs_started = True
+                ipfs_thread.start()
+
+            if not flask_started:
+                flask_started = True
+                api_thread.start()

@@ -16,22 +16,29 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-instance.py - Process and Thread handlers for backgrounded Kamina instances
+kamina.py - Process and Thread handlers for backgrounded Kamina instances
 Provides a python class for maintaining some consistent state across processes
 and threads.
 """
 
 import threading
+import signal
+import logging
 
 
-class KaminaInstance:
+class KaminaProcess:
     """Class providing state for the Kamina daemon"""
 
     # Not providing any defaults here, as an instance needs at least some conf
     # and a logger to speak out to.
-    def __init__(self, conf, logger) -> None:
-        self.running = False
+    def __init__(self, conf, logger: logging.Logger) -> None:
+        self.kill_now = False
+        self.conf = conf
         self.lock = threading.Lock()
+
+        # Set up some signal handlers
+        signal.signal(signal.SIGINT, self.kill_now)
+        signal.signal(signal.SIGTERM, self.kill_now)
 
         # Like I said, we need at least some basic conf and a logger
         if not logger:
@@ -45,3 +52,6 @@ class KaminaInstance:
         else:
             self.debug = conf["debug"]
             self.verbose = conf["verbose"]
+
+    def exit_gracefully(self):
+        self.kill_now = True
