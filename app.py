@@ -28,8 +28,6 @@ import sys
 import logging
 import logging.config
 import logging.handlers
-import threading
-import signal
 import importlib
 from pathlib import Path
 
@@ -37,7 +35,7 @@ import click
 import toml
 import colorama
 
-from core.instance import KaminaInstance
+from core.kamina import KaminaProcess
 
 
 def load_config(filename="config.toml") -> dict:
@@ -134,15 +132,15 @@ def main(ctx, verbose, debug, log, config) -> None:
     ctx.obj = {"CONF": conf, "LOG": logger}
 
     # Give value to our globals
-    kamina_instance = KaminaInstance(conf, logger)
+    kamina_process = KaminaProcess(conf, logger)
     if not conf["enable_ipfs"]:
-        cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(conf)
+        cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(kamina_process)
     else:
-        cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(conf)
+        cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(kamina_process)
 
     # Add variable to global ctx object
     ctx.obj["CLI_COMMANDS"] = cli_commands
-    ctx.obj["KAMINA_INSTANCE"] = kamina_instance
+    ctx.obj["KAMINA_PROCESS"] = kamina_process
 
 
 @main.command()
@@ -152,29 +150,15 @@ def init(ctx, install_ipfs) -> None:
     """Setup a new community node"""
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
-    signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
+    # signal_thunk = signal.signal(signal.SIGINT, signal.SIG_IGN)
     cli_commands = ctx.obj["CLI_COMMANDS"]
-    instance = ctx.obj["KAMINA_INSTANCE"]
+    # instance = ctx.obj["KAMINA_INSTANCE"]
 
     if not logger or not conf:
         print("Error: no valid conf or logger passed. Exiting.")
         sys.exit(1)
 
-    try:
-        setup_thread = threading.Thread(
-            target=cli_commands.init,
-            args=(install_ipfs,))
-        signal.signal(signal.SIGINT, signal_thunk)
-        setup_thread.start()
-    except KeyboardInterrupt:
-        instance.running = False
-        print("Aborted!")
-    except RuntimeError:
-        print("Failed!")
-    else:  # No exception ocurred
-        setup_thread.join()
-
-    sys.exit(0)
+    cli_commands.init(install_ipfs)
 
 
 @main.command()

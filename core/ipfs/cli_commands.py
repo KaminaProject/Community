@@ -21,13 +21,14 @@ cli_commands.py: Class containing the command line commands - ipfs version
 
 from core.ipfs.basic_commands import BasicCommands
 from core.ipfs.advanced_commands import AdvancedCommands
+from core.kamina import KaminaProcess
 
 
 class CliCommands:
     """Cli commands for managing the community node"""
-    def __init__(self, settings: dict):
-        self.basic_cmd = BasicCommands(settings)
-        self.adv_cmd = AdvancedCommands(settings)
+    def __init__(self, kamina_process: KaminaProcess):
+        self.basic_cmd = BasicCommands(kamina_process)
+        self.adv_cmd = AdvancedCommands(kamina_process)
 
     def init(self, install_ipfs: bool):
         self.basic_cmd.setup_community_node(install_ipfs)
