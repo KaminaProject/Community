@@ -32,12 +32,14 @@ from pathlib import PurePath
 import requests
 from tqdm import tqdm
 
+from core.kamina import KaminaProcess
+
 
 class BasicCommands:
     """Basic commands for managing the -community node."""
-    def __init__(self, settings: dict):
-        self.settings = settings
-        self.verbose = settings.get("verbose")
+    def __init__(self, kamina_process: KaminaProcess):
+        self.settings = kamina_process.conf
+        self.verbose = self.settings.get("verbose")
         self.logger = logging.getLogger("kamina")
 
     def setup_community_node(self, install_ipfs: bool) -> None:
@@ -63,7 +65,8 @@ class BasicCommands:
                                              shell=True).returncode
             else:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.DEVNULL).returncode
+                                             shell=True, stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL).returncode
             if return_code == 127:  # Command not found
                 self.logger.error("It looks like ipfs is not in your PATH, "
                                   "add flag --install-ipfs to install ipfs locally.")
@@ -94,7 +97,8 @@ class BasicCommands:
                                              shell=True).returncode
             else:
                 return_code = subprocess.run(" ".join(ipfs_init_command),
-                                             shell=True, stdout=subprocess.DEVNULL).returncode
+                                             shell=True, stdout=subprocess.DEVNULL,
+                                             stderr=subprocess.DEVNULL).returncode
             if return_code == 1:  # ipfs node alredy exists
                 self.logger.error("Community node already "
                                   "initialized in '%s'" % community_dir_path)
