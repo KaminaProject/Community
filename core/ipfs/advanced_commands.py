@@ -31,7 +31,6 @@ from pathlib import PurePath
 
 import ipfsapi
 
-from backend.api import API
 from core.kamina import KaminaProcess
 
 
@@ -39,7 +38,6 @@ class AdvancedCommands:
     """Manage advanced cli commands"""
     def __init__(self, kamina_process: KaminaProcess):
         self.settings = kamina_process.conf
-        self.backend = API(self.settings)
         self.logger = logging.getLogger("kamina")
         self.verbose = self.settings.get("verbose")
         self.process = kamina_process
@@ -88,6 +86,9 @@ class AdvancedCommands:
                                                stderr=subprocess.DEVNULL)
         self.logger.debug("Stopping ipfs thread")
         process.terminate()
+
+    def _flask_process(self):
+        self.logger.debug("Starting api thread")
 
     def start_community_daemon(self):
         """
@@ -151,7 +152,6 @@ class AdvancedCommands:
                 self.logger.info("Community daemon started")
                 self.logger.info("- Flask listening on port 1337")
                 self.logger.info("- IPFS listening on port 5001")
-                self.backend.connect_ipfs()  # Let the backend connect to ipfs
 
         ipfs_thread.join()
         self.logger.info("Stopped community daemon")
