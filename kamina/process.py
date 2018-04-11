@@ -16,32 +16,33 @@
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
 """
-Kamina.daemon.py - Process and Thread handlers for backgrounded Kamina instances
+kamina.py - Process and Thread handlers for backgrounded Kamina instances
 Provides a python class for maintaining some consistent state across processes
 and threads.
 """
 
-import threading
+import signal
+import logging
 
 
-class KaminaInstance:
+class KaminaProcess:
     """Class providing state for the Kamina daemon"""
 
     # Not providing any defaults here, as an instance needs at least some conf
     # and a logger to speak out to.
-    def __init__(self, conf, logger) -> None:
-        self.running = False
-        self.lock = threading.Lock()
+    def __init__(self, conf: dict) -> None:
+        self.running = True
+        self.conf = conf
+        self.logger = logging.getLogger("kamina")
 
-        # Like I said, we need at least some basic conf and a logger
-        if not logger:
-            print("KaminaInstance:  not given a valid logger.")
-            raise Exception
-        else:
-            self.logger = logger
-        if ("debug" not in conf) or ("verbose" not in conf):
-            print("KaminaInstance:  not given valid conf.")
-            raise Exception
-        else:
-            self.debug = conf["debug"]
-            self.verbose = conf["verbose"]
+        # Set up some signal handlers
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        signal.signal(signal.SIGHUP, self.exit_gracefully)
+
+    def exit_gracefully(self, signum, frame):
+        """
+        Handler for exit signals
+        """
+        self.logger.info("Received interrupt signal, shutting down...")
+        self.running = False

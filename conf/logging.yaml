@@ -1,0 +1,48 @@
+##############################################
+#                                            #
+#       Kamina's logging configuration       #
+#                                            #
+##############################################
+
+## This settings should be enough for everyone
+## You shouldn't change stuff in this file
+
+version: 1
+disable_existing_loggers: false
+
+root:
+  level: INFO
+  handlers: [syslog]
+  propagate: false
+
+loggers:
+  kamina:
+    level: INFO
+    handlers: [console, file]
+    propagate: false
+
+formatters:
+  simple:
+    format: "[%(asctime)s] [%(levelname)s] %(message)s"
+
+handlers:
+  console:
+    class: logging.StreamHandler
+    level: DEBUG
+    formatter: simple
+    stream: ext://sys.stdout
+
+  file:
+    class: logging.handlers.RotatingFileHandler
+    level: INFO
+    formatter: simple
+    filename: kamina.log
+    maxBytes: 10485760
+    backupCount: 20
+    encoding: utf8
+
+  syslog:
+    class: logging.handlers.SysLogHandler
+    level: INFO
+    formatter: simple
+    address: /dev/log  # Make this work in windows (?

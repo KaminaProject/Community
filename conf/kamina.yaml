@@ -1,0 +1,55 @@
+##############################################
+#                                            #
+#       Kamina Community configuration       #
+#                                            #
+##############################################
+
+## This is an example configuration file.
+## You should adjust it to your needs, and save it as "kamina.yaml"
+## Some variables will be replaced with their real value.
+## ${HOME} -> Your home directory
+
+####################################
+#      General configuration       #
+####################################
+general:
+  node_dir: "${HOME}/.kamina/community"
+
+
+##############################
+#      Troubleshooting       #
+##############################
+## Debug will show messages about what is going on
+## Verbose will show the same as Debug + stdout of subcommands that are run
+troubleshoot:
+  debug: false
+  verbose: false
+
+
+#####################
+#      Modules      #
+#####################
+
+## Configuration for modules kamina will use
+## TODO: Add configuration for usage of ports
+
+## Only one storage should be enabled
+storage:
+  ipfs:
+    enable: true
+    install_dir: "${HOME}/.kamina/go-ipfs"
+
+  sqlite:
+    enable: false
+    database: "${HOME}/.kamina/community/community.db"
+
+## Only one server should be enabled
+flask:
+  ## uWSGI, much better than werkzeug in production
+  uwsgi:
+    enable: true
+    run_command: "uwsgi -y conf/uwsgi.yaml"
+
+  ## Flask's built-in server
+  werkzeug:
+    enable: false
