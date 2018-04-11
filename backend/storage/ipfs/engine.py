@@ -20,8 +20,8 @@ import ipfsapi
 
 class Engine:
     def __init__(self, settings: dict):
-        self.api = None
+        self.ipfs = None
         self.setting = settings
 
     def connect_ipfs(self):
-        self.api = ipfsapi.connect('127.0.0.1', 5001)
+        self.ipfs = ipfsapi.connect('127.0.0.1', 5001)
