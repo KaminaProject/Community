@@ -30,46 +30,11 @@ import logging
 import logging.config
 import logging.handlers
 import importlib
-from pathlib import Path
 
 import click
-import toml
-import colorama
 
-from core.kamina import KaminaProcess
-
-
-def load_config(filename="config.toml") -> dict:
-    """
-    Open a TOML file, and parse their values into a dict
-    """
-    config = {}
-
-    if os.path.exists(filename):
-        with open(filename, "rt") as cfg:
-            try:
-                config = toml.load(cfg)
-            except toml.TomlDecodeError:
-                print("Config file format is invalid! Providing defaults...")
-    else:
-        print("No config file found!")
-
-    return config
-
-
-def parse_config_variables(config: dict) -> dict:
-    """
-    Replace some variables in the config dict:
-    It only replaces ${HOME} for now
-    """
-    for key, value in config.items():
-        if isinstance(value, dict):
-            parse_config_variables(value)
-        else:
-            if isinstance(value, str):
-                if value.find("${HOME}") != -1:
-                    config[key] = value.replace("${HOME}", str(Path.home()))
-    return config
+from kamina.process import KaminaProcess
+from kamina.config import KaminaConfiguration
 
 # I have a low opinion of sigils, so function decorators have always looked
 # like pythonic cancer.  Despite that, I've gotta admit the Click framework
@@ -85,32 +50,16 @@ def parse_config_variables(config: dict) -> dict:
               help="Enable debugging")
 @click.option("--log", "-l", default=None, type=click.Path(),
               help="Redirect logging location")
-@click.option("--config", "-c", default="config.toml",
+@click.option("--config-dir", "-c", default=os.path.dirname(os.path.abspath(__file__)),
               type=click.Path(exists=True),
-              help="Specify alternate configuration file")
+              help="Specify alternate configuration directory")
 @click.pass_context
-def main(ctx, verbose, debug, log, config) -> None:
+def main(ctx, verbose, debug, log, config_dir) -> None:
     """The Kamina service utility"""
-    conf = load_config(config)
-    colorama.init()  # Initialize colorama
-    handlers = []
-
-    if "logging" in conf:
-        logging.config.dictConfig(conf["logging"])
-
+    kamina_conf = KaminaConfiguration(config_dir)
+    conf = kamina_conf.conf
     logger = logging.getLogger("kamina")
-
-    # There might not have been any configuration loaded, so let's at least set
-    # a baseline - these two values should at least be known.
-    if "debug" not in conf:
-        conf["debug"] = debug
-    if "verbose" not in conf:
-        conf["verbose"] = verbose
-    if "enable_ipfs" not in conf:
-        conf["enable_ipfs"] = True
-
-    # Replace some variables in config, mainly ${HOME} and ${NODEDIR}
-    conf = parse_config_variables(conf)
+    handlers = []
 
     # If you specified an alternate log location on the command-line, use that.
     # Otherwise, use syslog, so we at least have that, even if the config file
@@ -123,21 +72,22 @@ def main(ctx, verbose, debug, log, config) -> None:
             handlers.append(logging.handlers.SysLogHandler(address="/dev/log"))
 
     if verbose:
-        conf["verbose"] = True
+        conf["troubleshoot"]["verbose"] = True
         logger.setLevel(logging.DEBUG)
 
     if debug:
         logger.setLevel(logging.DEBUG)
 
-    for handle in handlers:
-        logger.addHandler(handle)
+    if not logger.handlers:  # Only add handlers if logger is not configured
+        for handle in handlers:
+            logger.addHandler(handle)
 
     # Now, propogate the context for our sub-commands
     ctx.obj = {"CONF": conf, "LOG": logger}
 
     # Give value to our globals
-    kamina_process = KaminaProcess(conf, logger)
-    if not conf["enable_ipfs"]:
+    kamina_process = KaminaProcess(conf)
+    if not conf["storage"]["ipfs"]["enable"]:
         cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(kamina_process)
     else:
         cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(kamina_process)
