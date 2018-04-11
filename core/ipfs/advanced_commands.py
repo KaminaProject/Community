@@ -25,13 +25,16 @@ import subprocess
 import logging
 import sys
 import time
+import urllib.request
+import urllib.error
 from pathlib import PurePath
+
+import ipfsapi
 
 from backend.api import API
 from core.kamina import KaminaProcess
 
 
-# TODO: Fix logging with flask
 class AdvancedCommands:
     """Manage advanced cli commands"""
     def __init__(self, kamina_process: KaminaProcess):
@@ -41,7 +44,11 @@ class AdvancedCommands:
         self.verbose = self.settings.get("verbose")
         self.process = kamina_process
 
-    def __get_ipfs_bin_path(self):
+    def _get_ipfs_bin_path(self) -> str:
+        """
+        Find the location of the ipfs binary
+        :return: The location of ipfs binary, otherwise, FileNotFoundError
+        """
         local_ipfs_dir = self.settings["local_ipfs_install"]["directory"]
         bin_path = "ipfs"
         ipfs_in_path = True
@@ -49,7 +56,7 @@ class AdvancedCommands:
         try:
             subprocess.run([bin_path], stdout=subprocess.DEVNULL)
         except FileNotFoundError:
-            self.logger.info("IPFS is not in your path, trying to use local ipfs instead")
+            self.logger.debug("IPFS is not in your path, trying to use local ipfs instead")
             ipfs_in_path = False
 
         if not ipfs_in_path:
@@ -62,66 +69,89 @@ class AdvancedCommands:
 
         return bin_path
 
-    def ipfs_process(self, run_event: threading.Event):
-        self.logger.info("Starting community daemon in http://localhost:1337/api")
-        community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
+    def _ipfs_process(self, ipfs_command: str):
+        """
+        Wrapper function for ipfs daemon initialization
+        """
+        self.logger.debug("Starting ipfs thread")
+        ipfs_running = False
+        process = None
+        while self.process.running:
+            time.sleep(0.01)
+            if not ipfs_running:
+                ipfs_running = True
+                if self.verbose:
+                    process = subprocess.Popen(ipfs_command, shell=True)
+                else:
+                    process = subprocess.Popen(ipfs_command, shell=True,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+        self.logger.debug("Stopping ipfs thread")
+        process.terminate()
 
+    def start_community_daemon(self):
+        """
+        Starts both the flask api server and the ipfs daemon server
+        In charge of handling some end signals
+        :return: Nothing
+        """
+        self.logger.info("Starting community daemon...")
         try:
-            ipfs_binary = self.__get_ipfs_bin_path()
+            ipfs_binary = self._get_ipfs_bin_path()
         except FileNotFoundError:
             self.logger.exception("Unable to locate IPFS, aborting")
             sys.exit(1)
-
+        community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
         ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
-        ipfs_named_args = {
-            "shell": True
-        }
-
-        if not self.verbose:
-            ipfs_named_args["stdout"] = subprocess.DEVNULL
-
-        ipfs_running = False
-
-        while run_event.isSet():
-            if not ipfs_running:
-                ipfs_running = True
-                subprocess.run(ipfs_command, shell=True)
-
-    def flask_process(self, run_event: threading.Event):
-        flask_running = False
-        while run_event.isSet():
-            if not flask_running:
-                flask_running = True
-                self.backend.app.run(port=1337)
-
-    def start_community_daemon(self):
-        run_event = threading.Event()
-        run_event.set()
+        # Flags for thread control
         ipfs_started = False
         flask_started = False
+        all_good = False
 
+        # Setup threads
         ipfs_thread = threading.Thread(
-            target=self.ipfs_process,
-            args=(run_event,)
+            target=self._ipfs_process,
+            args=(ipfs_command,)
         )
 
-        api_thread = threading.Thread(
-            target=self.flask_process,
-            args=(run_event,)
+        flask_thread = threading.Thread(
+            target=self.backend.app.run,
+            kwargs={"port": 1337}
         )
 
-        while True:
+        # For now, looks like the only way to achieve propper multithreading with flask
+        flask_thread.setDaemon(True)
+
+        while self.process.running:
             time.sleep(0.01)  # Avoid 100% CPU usage
-            if self.process.kill_now:
-                ipfs_thread.join()
-                api_thread.join()
-                run_event.clear()
-                break
-
+            # This way we start threads only once
             if not ipfs_started:
                 ipfs_started = True
                 ipfs_thread.start()
 
             if not flask_started:
                 flask_started = True
-                api_thread.start()
+                flask_thread.start()
+
+            if not all_good:
+                # Check if the ipfs daemon finished starting
+                try:
+                    ipfsapi.connect('127.0.0.1', 5001)  # TODO: Add port configuration functionality
+                except ipfsapi.exceptions.ConnectionError:
+                    continue
+                # Check if flask finished starting
+                try:
+                    with urllib.request.urlopen("http://127.0.0.1:1337/api/") as response:
+                        if response.code != 200:
+                            continue
+                except urllib.error.URLError:
+                    continue
+                # If we reach this point, everything went fine
+                all_good = True
+                self.logger.info("Community daemon started")
+                self.logger.info("- Flask listening on port 1337")
+                self.logger.info("- IPFS listening on port 5001")
+                self.backend.connect_ipfs()  # Let the backend connect to ipfs
+
+        ipfs_thread.join()
+        self.logger.info("Stopped community daemon")
