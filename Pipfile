@@ -16,7 +16,6 @@ requests = "*"
 tqdm = "*"
 pylint = "*"
 toml = "*"
-colorama = "*"
 Flask = "*"
 PyYAML = "*"
 
