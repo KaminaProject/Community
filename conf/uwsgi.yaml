@@ -8,6 +8,6 @@ uwsgi:
     threads: 2
     plugin: python
     wsgi-file: wsgi.py
-    callable: app
+    callable: APP
     virtualenv: .venv
     stats: 127.0.0.1:9191

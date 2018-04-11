@@ -5,7 +5,7 @@
 ##############################################
 
 ## This is an example configuration file.
-## You should adjust it to your needs, and save it as "config.toml"
+## You should adjust it to your needs, and save it as "kamina.yaml"
 ## Some variables will be replaced with their real value.
 ## ${HOME} -> Your home directory
 
