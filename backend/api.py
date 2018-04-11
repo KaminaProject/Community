@@ -66,6 +66,9 @@ class API:
     def add_route(self, route):
         self.app.add_url_rule(route["r"], view_func=route["f"], methods=route["m"])
 
+    def connect_ipfs(self):
+        self.storage.engine.connect_ipfs()
+
     @staticmethod
     def index():
         return "Hello there!\n"
