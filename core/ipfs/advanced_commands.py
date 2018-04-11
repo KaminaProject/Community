@@ -85,9 +85,9 @@ class AdvancedCommands:
                     process = subprocess.Popen(ipfs_command, shell=True,
                                                stdout=subprocess.DEVNULL,
                                                stderr=subprocess.DEVNULL)
-        self.logger.debug("Stopping ipfs thread")
         process.send_signal(signal.SIGINT)
         process.wait()
+        self.logger.debug("Stopped ipfs thread")
 
     def _flask_process(self):
         self.logger.debug("Starting api server(uWSGI) thread")
@@ -104,9 +104,9 @@ class AdvancedCommands:
                     process = subprocess.Popen(uwsgi_command, shell=True,
                                                stdout=subprocess.DEVNULL,
                                                stderr=subprocess.DEVNULL)
-        self.logger.debug("Stopping api server thread")
         process.send_signal(signal.SIGINT)
         process.wait()
+        self.logger.debug("Stopped uwsgi thread")
 
     def start_community_daemon(self):
         """
@@ -168,4 +168,5 @@ class AdvancedCommands:
                 self.logger.info("- IPFS listening on port 5001")
 
         ipfs_thread.join()
+        flask_thread.join()
         self.logger.info("Stopped community daemon")
