@@ -32,14 +32,14 @@ from pathlib import PurePath
 import requests
 from tqdm import tqdm
 
-from core.kamina import KaminaProcess
+from kamina.process import KaminaProcess
 
 
 class BasicCommands:
     """Basic commands for managing the -community node."""
     def __init__(self, kamina_process: KaminaProcess):
         self.settings = kamina_process.conf
-        self.verbose = self.settings.get("verbose")
+        self.verbose = self.settings["troubleshoot"]["verbose"]
         self.logger = logging.getLogger("kamina")
 
     def setup_community_node(self, install_ipfs: bool) -> None:
@@ -48,7 +48,7 @@ class BasicCommands:
         :param install_ipfs: Whether to download ipfs using this script
         :return: None
         """
-        community_dir_path = self.settings["general_information"]["node_directory"]
+        community_dir_path = self.settings["general"]["node_dir"]
         ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
         self.logger.info("Setting up a new community node in %s" % community_dir_path)
 
@@ -79,7 +79,7 @@ class BasicCommands:
         else:
             self.logger.debug("Downloading ipfs for current platform")
             # Only download if the folder go-ipfs doesnt exist already
-            install_dir = str(PurePath(self.settings["local_ipfs_install"]["directory"]))
+            install_dir = str(PurePath(self.settings["storage"]["ipfs"]["install_dir"]))
             if not os.path.exists(install_dir):
                 self.__install_ipfs(install_dir)
             else:
@@ -89,7 +89,7 @@ class BasicCommands:
 
             # Now initialize the ipfs node with the downloaded binary
             ipfs_init_command[1] = shlex.quote(str(PurePath(
-                self.settings["local_ipfs_install"]["directory"],
+                self.settings["storage"]["ipfs"]["install_dir"],
                 "ipfs"
             )))
             if self.verbose:
