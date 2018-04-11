@@ -11,14 +11,14 @@ chardet = "*"
 click = "*"
 idna = "*"
 ipfsapi = "*"
-pillow = "*"
+Pillow = "*"
 requests = "*"
 tqdm = "*"
 pylint = "*"
 toml = "*"
 colorama = "*"
-flask = "*"
-pyyaml = "*"
+Flask = "*"
+PyYAML = "*"
 
 [dev-packages]
 
