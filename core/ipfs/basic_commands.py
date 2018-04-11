@@ -50,7 +50,7 @@ class BasicCommands:
         """
         community_dir_path = self.settings["general"]["node_dir"]
         ipfs_init_command = ["IPFS_PATH=%s" % shlex.quote(community_dir_path), "ipfs", "init"]
-        self.logger.info("Setting up a new community node in %s" % community_dir_path)
+        self.logger.info("Setting up a new community node in %s", community_dir_path)
 
         # Try to create the folder in which kamina-community will reside
         try:
@@ -74,7 +74,7 @@ class BasicCommands:
 
             elif return_code == 1:  # ipfs node alredy exists
                 self.logger.error("Community node already "
-                                  "initialized in '%s'" % community_dir_path)
+                                  "initialized in '%s'", community_dir_path)
                 sys.exit(1)
         else:
             self.logger.debug("Downloading ipfs for current platform")
@@ -84,7 +84,7 @@ class BasicCommands:
                 self.__install_ipfs(install_dir)
             else:
                 self.logger.error("Directory '%s' already exists, "
-                                  "aborting download" % install_dir)
+                                  "aborting download", install_dir)
                 sys.exit(1)
 
             # Now initialize the ipfs node with the downloaded binary
@@ -101,7 +101,7 @@ class BasicCommands:
                                              stderr=subprocess.DEVNULL).returncode
             if return_code == 1:  # ipfs node alredy exists
                 self.logger.error("Community node already "
-                                  "initialized in '%s'" % community_dir_path)
+                                  "initialized in '%s'", community_dir_path)
                 sys.exit(1)
 
         # Print friendly message if everything went all right
@@ -152,5 +152,5 @@ class BasicCommands:
         # Extract it
         self.logger.debug("Extracting downloaded binary...")
         shutil.unpack_archive(temp_dl_file_location, temp_dl_dir.name)
-        self.logger.debug("Copying files to '%s'..." % install_dir)
+        self.logger.debug("Copying files to '%s'...", install_dir)
         shutil.copytree(str(PurePath(temp_dl_dir.name, "go-ipfs")), install_dir)

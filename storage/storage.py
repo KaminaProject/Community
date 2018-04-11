@@ -15,18 +15,30 @@
 # along with this program; if not, write to the Free Software
 # Foundation, Inc., 51 Franklin Street, Fifth Floor, Boston, MA  02110-1301, USA.
 
+"""
+storage.py - Manage data storage, be it sqlite or ipfs
+"""
+
 import importlib
 import logging
 
 
 class Storage:
+    """
+    Helper class to standardize storage
+    """
     def __init__(self, settings: dict):
         self.settings = settings
         self.logger = logging.getLogger("kamina")
-        if not settings["enable_ipfs"]:
-            self.engine = importlib.import_module("backend.storage.non-ipfs.engine").Engine(settings)
+        if not settings["storage"]["ipfs"]["enable"]:
+            module = importlib.import_module("storage.non-ipfs.engine")
         else:
-            self.engine = importlib.import_module("backend.storage.ipfs.engine").Engine(settings)
+            module = importlib.import_module("storage.ipfs.engine")
+        self.engine = module.Engine(settings)
 
     def make_thread(self):
+        """
+        Make a new thread
+        :return:
+        """
         pass

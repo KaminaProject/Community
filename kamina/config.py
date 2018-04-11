@@ -20,7 +20,6 @@
 settings.py - Load and parse configuration files
 """
 
-import yaml
 import sys
 import os
 import logging
@@ -28,8 +27,13 @@ import logging.config
 import logging.handlers
 from pathlib import Path, PurePath
 
+import yaml
+
 
 class KaminaConfiguration:
+    """
+    Helper class to load and parse config files in conf folder
+    """
     def __init__(self, base_dir: str):
         # TODO: Set needed defaults
         self.conf = {}
@@ -48,7 +52,7 @@ class KaminaConfiguration:
         # Try to open logging config
         with open(PurePath(self.conf_dir, "logging.yaml"), "rt") as log_cfg:
             try:
-                logging_conf = yaml.load(log_cfg)["logging"]
+                logging_conf = yaml.load(log_cfg)
             except yaml.YAMLError:
                 print("Error parsing logging configuration.")
                 sys.exit(1)
@@ -56,7 +60,7 @@ class KaminaConfiguration:
         # Setup logging
         try:
             logging.config.dictConfig(logging_conf)
-        except (ImportError, ValueError, TypeError, AttributeError) as err:
+        except (ImportError, ValueError, TypeError, AttributeError):
             print("Error configurating logger, using defaults")
             self._setup_logger_defaults()
         else:

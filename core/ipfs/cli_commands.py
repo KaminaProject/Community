@@ -30,8 +30,17 @@ class CliCommands:
         self.basic_cmd = BasicCommands(kamina_process)
         self.adv_cmd = AdvancedCommands(kamina_process)
 
-    def init(self, install_ipfs: bool):
+    def init(self, install_ipfs: bool) -> None:
+        """
+        Initialize community node
+        :param install_ipfs: Whether to install ipfs or not
+        :return: None
+        """
         self.basic_cmd.setup_community_node(install_ipfs)
 
-    def daemon(self):
+    def daemon(self) -> None:
+        """
+        Start community daemon
+        :return: None
+        """
         self.adv_cmd.start_community_daemon()

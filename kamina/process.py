@@ -41,5 +41,8 @@ class KaminaProcess:
         signal.signal(signal.SIGHUP, self.exit_gracefully)
 
     def exit_gracefully(self, signum, frame):
+        """
+        Handler for exit signals
+        """
         self.logger.info("Received interrupt signal, shutting down...")
         self.running = False
