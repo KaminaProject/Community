@@ -21,6 +21,7 @@ advanced_commands.py - Class containing advanced command line commands
 
 import threading
 import shlex
+import signal
 import subprocess
 import logging
 import sys
@@ -31,7 +32,7 @@ from pathlib import PurePath
 
 import ipfsapi
 
-from core.kamina import KaminaProcess
+from kamina.process import KaminaProcess
 
 
 class AdvancedCommands:
@@ -39,7 +40,7 @@ class AdvancedCommands:
     def __init__(self, kamina_process: KaminaProcess):
         self.settings = kamina_process.conf
         self.logger = logging.getLogger("kamina")
-        self.verbose = self.settings.get("verbose")
+        self.verbose = self.settings["troubleshoot"]["verbose"]
         self.process = kamina_process
 
     def _get_ipfs_bin_path(self) -> str:
@@ -47,7 +48,7 @@ class AdvancedCommands:
         Find the location of the ipfs binary
         :return: The location of ipfs binary, otherwise, FileNotFoundError
         """
-        local_ipfs_dir = self.settings["local_ipfs_install"]["directory"]
+        local_ipfs_dir = self.settings["storage"]["ipfs"]["install_dir"]
         bin_path = "ipfs"
         ipfs_in_path = True
 
@@ -85,10 +86,27 @@ class AdvancedCommands:
                                                stdout=subprocess.DEVNULL,
                                                stderr=subprocess.DEVNULL)
         self.logger.debug("Stopping ipfs thread")
-        process.terminate()
+        process.send_signal(signal.SIGINT)
+        process.wait()
 
     def _flask_process(self):
-        self.logger.debug("Starting api thread")
+        self.logger.debug("Starting api server(uWSGI) thread")
+        flask_running = False
+        process = None
+        uwsgi_command = self.settings["flask"]["uwsgi"]["run_command"]
+        while self.process.running:
+            time.sleep(0.01)
+            if not flask_running:
+                flask_running = True
+                if self.verbose:
+                    process = subprocess.Popen(uwsgi_command, shell=True)
+                else:
+                    process = subprocess.Popen(uwsgi_command, shell=True,
+                                               stdout=subprocess.DEVNULL,
+                                               stderr=subprocess.DEVNULL)
+        self.logger.debug("Stopping api server thread")
+        process.send_signal(signal.SIGINT)
+        process.wait()
 
     def start_community_daemon(self):
         """
@@ -102,7 +120,7 @@ class AdvancedCommands:
         except FileNotFoundError:
             self.logger.exception("Unable to locate IPFS, aborting")
             sys.exit(1)
-        community_dir_path = shlex.quote(self.settings["general_information"]["node_directory"])
+        community_dir_path = shlex.quote(self.settings["general"]["node_dir"])
         ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
         # Flags for thread control
         ipfs_started = False
@@ -116,12 +134,8 @@ class AdvancedCommands:
         )
 
         flask_thread = threading.Thread(
-            target=self.backend.app.run,
-            kwargs={"port": 1337}
+            target=self._flask_process
         )
-
-        # For now, looks like the only way to achieve propper multithreading with flask
-        flask_thread.setDaemon(True)
 
         while self.process.running:
             time.sleep(0.01)  # Avoid 100% CPU usage
