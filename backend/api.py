@@ -17,11 +17,13 @@
 
 from flask import Flask
 
+from storage.storage import Storage
+
 
 class API:
     app = Flask(__name__)
 
-    def __init__(self):
+    def __init__(self, settings: dict):
         # Routes
         routes = [
             {
@@ -58,6 +60,8 @@ class API:
 
         for route in routes:
             self.add_route(route)
+
+        self.storage = Storage(settings)
 
     def add_route(self, route):
         self.app.add_url_rule(route["r"], view_func=route["f"], methods=route["m"])
