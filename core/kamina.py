@@ -32,13 +32,14 @@ class KaminaProcess:
     # Not providing any defaults here, as an instance needs at least some conf
     # and a logger to speak out to.
     def __init__(self, conf, logger: logging.Logger) -> None:
-        self.kill_now = False
+        self.running = True
         self.conf = conf
         self.lock = threading.Lock()
 
         # Set up some signal handlers
-        signal.signal(signal.SIGINT, self.kill_now)
-        signal.signal(signal.SIGTERM, self.kill_now)
+        signal.signal(signal.SIGINT, self.exit_gracefully)
+        signal.signal(signal.SIGTERM, self.exit_gracefully)
+        signal.signal(signal.SIGHUP, self.exit_gracefully)
 
         # Like I said, we need at least some basic conf and a logger
         if not logger:
@@ -53,5 +54,6 @@ class KaminaProcess:
             self.debug = conf["debug"]
             self.verbose = conf["verbose"]
 
-    def exit_gracefully(self):
-        self.kill_now = True
+    def exit_gracefully(self, signum, frame):
+        self.logger.info("Received interrupt signal, shutting down...")
+        self.running = False
