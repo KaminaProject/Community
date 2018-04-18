@@ -11,7 +11,7 @@ Ipfs can be disabled(TODO), if it is disabled, the community node will lose its 
 until we can achieve decentralization without the usage of ipfs.
 
 #### Further reading
-[Kamina's documentation](https://github.com/KaminaProject/documentation)
+[Kamina's documentation](https://github.com/KaminaProject/kDocumentation)
 [IPFS's api python implementation's documentation](https://ipfs.io/ipns/QmZ86ow1byeyhNRJEatWxGPJKcnQKG7s51MtbHdxxUddTH/Software/Python/ipfsapi/)
 
 ## Installation
@@ -27,7 +27,7 @@ cd community-node
 
 2. Install the python dependencies with:
 ```
-pipenv install
+PIPENV_VENV_IN_PROJECT=1 pipenv install
 ```
 
 3. Initialize a pipenv shell
