@@ -43,16 +43,15 @@ from kamina.config import KaminaConfiguration
 
 @click.group(context_settings=dict(help_option_names=["-h", "--help"]))
 @click.version_option(version=0.1, prog_name="Kamina Community")
-@click.option("--verbose", default=False,
-              is_flag=True,
-              help="Print all log messages to console, must be before any subcommand")
 @click.option("--debug", default=False, is_flag=True,
-              help="Enable debugging")
+              help="Show all log messages, must be before any command.")
+@click.option("--verbose", default=False, is_flag=True,
+              help="Same as --debug, but with a plus, must be before any command.")
 @click.option("--log", "-l", default=None, type=click.Path(),
-              help="Redirect logging location")
+              help="Redirect logging location.")
 @click.option("--config-dir", "-c", default=os.path.dirname(os.path.abspath(__file__)),
               type=click.Path(exists=True),
-              help="Specify alternate configuration directory")
+              help="Specify alternate configuration directory.")
 @click.pass_context
 def main(ctx, verbose, debug, log, config_dir) -> None:
     """The Kamina service utility"""
@@ -101,7 +100,7 @@ def main(ctx, verbose, debug, log, config_dir) -> None:
 @click.option("--install-ipfs", is_flag=True, help="Install ipfs locally.")
 @click.pass_context
 def init(ctx, install_ipfs) -> None:
-    """Setup a new community node"""
+    """Setup a new community node."""
     logger = ctx.obj["LOG"]
     conf = ctx.obj["CONF"]
     cli_commands = ctx.obj["CLI_COMMANDS"]
@@ -116,7 +115,7 @@ def init(ctx, install_ipfs) -> None:
 @main.command()
 @click.pass_context
 def daemon(ctx) -> None:
-    """Initialize a community daemon"""
+    """Initialize kamina's community daemon."""
     cli_commands = ctx.obj["CLI_COMMANDS"]
     cli_commands.daemon()
 
