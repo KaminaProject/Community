@@ -40,6 +40,7 @@ class BasicCommands:
     def __init__(self, kamina_process: KaminaProcess):
         self.settings = kamina_process.conf
         self.verbose = self.settings["troubleshoot"]["verbose"]
+        self.debug = self.settings["troubleshoot"]["debug"]
         self.logger = logging.getLogger("kamina")
 
     def setup_community_node(self, install_ipfs: bool) -> None:
@@ -138,7 +139,7 @@ class BasicCommands:
         response = requests.get(download_url, stream=True)
         total_size = int(response.headers.get("content-length", 0))
         with open(temp_dl_file_location, "wb") as file:
-            if self.verbose:
+            if self.debug:
                 # Show a nice progress bar
                 pbar = tqdm(total=total_size, unit="B", unit_scale=True)
                 for data in response.iter_content(1024):

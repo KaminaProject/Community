@@ -25,6 +25,7 @@ import signal
 import subprocess
 import logging
 import sys
+import os
 import time
 import urllib.request
 import urllib.error
@@ -80,12 +81,13 @@ class AdvancedCommands:
             if not ipfs_running:
                 ipfs_running = True
                 if self.verbose:
-                    process = subprocess.Popen(ipfs_command, shell=True)
+                    process = subprocess.Popen(ipfs_command, shell=True, preexec_fn=os.setpgrp)
                 else:
                     process = subprocess.Popen(ipfs_command, shell=True,
                                                stdout=subprocess.DEVNULL,
-                                               stderr=subprocess.DEVNULL)
-        process.send_signal(signal.SIGINT)
+                                               stderr=subprocess.DEVNULL,
+                                               preexec_fn=os.setpgrp)
+        process.send_signal(signal.SIGTERM)
         process.wait()
         self.logger.debug("Stopped ipfs thread")
 
@@ -99,12 +101,13 @@ class AdvancedCommands:
             if not flask_running:
                 flask_running = True
                 if self.verbose:
-                    process = subprocess.Popen(uwsgi_command, shell=True)
+                    process = subprocess.Popen(uwsgi_command, shell=True, preexec_fn=os.setpgrp)
                 else:
                     process = subprocess.Popen(uwsgi_command, shell=True,
                                                stdout=subprocess.DEVNULL,
-                                               stderr=subprocess.DEVNULL)
-        process.send_signal(signal.SIGINT)
+                                               stderr=subprocess.DEVNULL,
+                                               preexec_fn=os.setpgrp)
+        process.send_signal(signal.SIGQUIT)
         process.wait()
         self.logger.debug("Stopped uwsgi thread")
 

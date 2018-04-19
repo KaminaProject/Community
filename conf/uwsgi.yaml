@@ -3,7 +3,7 @@
 
 uwsgi:
     master: 1
-    http-socket: :1337  # H4x3rz port
+    http: :1337  # H4x3rz port
     processes: 4
     threads: 2
     plugin: python
