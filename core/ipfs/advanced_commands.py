@@ -19,7 +19,6 @@
 advanced_commands.py - Class containing advanced command line commands
 """
 
-import threading
 import shlex
 import signal
 import subprocess
@@ -69,53 +68,51 @@ class AdvancedCommands:
 
         return bin_path
 
-    def _ipfs_process(self, ipfs_command: str):
+    def _start_ipfs_daemon(self, node_dir: str, ipfs_binary: str) -> subprocess.Popen:
         """
         Wrapper function for ipfs daemon initialization
         """
-        self.logger.debug("Starting ipfs thread")
-        ipfs_running = False
-        process = None
-        while self.process.running:
-            time.sleep(0.01)
-            if not ipfs_running:
-                ipfs_running = True
-                if self.verbose:
-                    process = subprocess.Popen(ipfs_command, shell=True, preexec_fn=os.setpgrp)
-                else:
-                    process = subprocess.Popen(ipfs_command, shell=True,
-                                               stdout=subprocess.DEVNULL,
-                                               stderr=subprocess.DEVNULL,
-                                               preexec_fn=os.setpgrp)
-        process.send_signal(signal.SIGTERM)
-        process.wait()
-        self.logger.debug("Stopped ipfs thread")
+        self.logger.debug("Starting ipfs daemon...")
+        ipfs_env = os.environ.copy()
+        ipfs_env["IPFS_PATH"] = node_dir
+        ipfs_command = "%s daemon" % ipfs_binary
+        if self.verbose:
+            ipfs_process = subprocess.Popen(
+                ipfs_command.split(),
+                env=ipfs_env,
+                preexec_fn=os.setpgrp
+            )
+        else:
+            ipfs_process = subprocess.Popen(
+                ipfs_command.split(),
+                env=ipfs_env,
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                preexec_fn=os.setpgrp
+            )
+        return ipfs_process
 
-    def _flask_process(self):
-        self.logger.debug("Starting api server(uWSGI) thread")
-        flask_running = False
-        process = None
+    def _start_api_server(self) -> subprocess.Popen:
+        self.logger.debug("Starting api server...")
         uwsgi_command = self.settings["flask"]["uwsgi"]["run_command"]
-        while self.process.running:
-            time.sleep(0.01)
-            if not flask_running:
-                flask_running = True
-                if self.verbose:
-                    process = subprocess.Popen(uwsgi_command, shell=True, preexec_fn=os.setpgrp)
-                else:
-                    process = subprocess.Popen(uwsgi_command, shell=True,
-                                               stdout=subprocess.DEVNULL,
-                                               stderr=subprocess.DEVNULL,
-                                               preexec_fn=os.setpgrp)
-        process.send_signal(signal.SIGQUIT)
-        process.wait()
-        self.logger.debug("Stopped uwsgi thread")
+        if self.verbose:
+            uwsgi_process = subprocess.Popen(
+                uwsgi_command.split(),
+                preexec_fn=os.setpgrp
+            )
+        else:
+            uwsgi_process = subprocess.Popen(
+                uwsgi_command.split(),
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+                preexec_fn=os.setpgrp
+            )
+        return uwsgi_process
 
     def start_community_daemon(self):
         """
         Starts both the flask api server and the ipfs daemon server
         In charge of handling some end signals
-        :return: Nothing
         """
         self.logger.info("Starting community daemon...")
         try:
@@ -123,53 +120,60 @@ class AdvancedCommands:
         except FileNotFoundError:
             self.logger.exception("Unable to locate IPFS, aborting")
             sys.exit(1)
+
         community_dir_path = shlex.quote(self.settings["general"]["node_dir"])
-        ipfs_command = "IPFS_PATH=%s %s daemon" % (community_dir_path, ipfs_binary)
-        # Flags for thread control
+        # Flags for process control
         ipfs_started = False
-        flask_started = False
+        api_started = False
         all_good = False
 
-        # Setup threads
-        ipfs_thread = threading.Thread(
-            target=self._ipfs_process,
-            args=(ipfs_command,)
-        )
-
-        flask_thread = threading.Thread(
-            target=self._flask_process
-        )
+        # Variables in order to terminate processes
+        ipfs_process = None
+        api_process = None
 
         while self.process.running:
-            time.sleep(0.01)  # Avoid 100% CPU usage
-            # This way we start threads only once
+            # This way we start processes only once
             if not ipfs_started:
-                ipfs_started = True
-                ipfs_thread.start()
+                ipfs_process = self._start_ipfs_daemon(community_dir_path, ipfs_binary)
+                # Wait for ipfs to start
+                while not ipfs_started:
+                    try:
+                        # TODO: Add port configuration functionality
+                        ipfsapi.connect('127.0.0.1', 5001)
+                    except ipfsapi.exceptions.ConnectionError:
+                        continue
+                    else:
+                        ipfs_started = True
+                    time.sleep(0.01)
 
-            if not flask_started:
-                flask_started = True
-                flask_thread.start()
+            if not api_started:
+                api_process = self._start_api_server()
+                # Wait for uwsgi to start
+                while not api_started:
+                    try:
+                        with urllib.request.urlopen("http://127.0.0.1:1337/api/") as response:
+                            if response.code != 200:
+                                continue
+                    except urllib.error.URLError:
+                        continue
+                    else:
+                        api_started = True
+                    time.sleep(0.01)
 
             if not all_good:
-                # Check if the ipfs daemon finished starting
-                try:
-                    ipfsapi.connect('127.0.0.1', 5001)  # TODO: Add port configuration functionality
-                except ipfsapi.exceptions.ConnectionError:
-                    continue
-                # Check if flask finished starting
-                try:
-                    with urllib.request.urlopen("http://127.0.0.1:1337/api/") as response:
-                        if response.code != 200:
-                            continue
-                except urllib.error.URLError:
-                    continue
                 # If we reach this point, everything went fine
                 all_good = True
                 self.logger.info("Community daemon started")
                 self.logger.info("- Flask listening on port 1337")
                 self.logger.info("- IPFS listening on port 5001")
 
-        ipfs_thread.join()
-        flask_thread.join()
+            time.sleep(0.01)  # Avoid 100% CPU usage
+
+        # Now send end signal to all processes
+        self.logger.debug("Stopping ipfs daemon...")
+        ipfs_process.terminate()
+        ipfs_process.wait()
+        self.logger.debug("Stopping api server...")
+        api_process.send_signal(signal.SIGQUIT)
+        api_process.wait()
         self.logger.info("Stopped community daemon")
