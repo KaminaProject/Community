@@ -1,12 +1,14 @@
-# Configuration file for uWSGI
-# Adjust the settings according to your needs
+## Configuration file for uWSGI
+## Adjust the settings according to your needs
 
 uwsgi:
     master: 1
-    http: :1337  # H4x3rz port
+    ### H4x3rZ port
+    http: :1337
     processes: 4
     threads: 2
-    plugin: python
+    ## this is not needed if you are using uwsgi from pip
+    #plugin: python
     wsgi-file: wsgi.py
     callable: APP
     virtualenv: .venv
