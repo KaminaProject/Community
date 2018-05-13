@@ -25,7 +25,7 @@ body, html {
 
 #app {
     font-family: Helvetica, Arial, sans-serif;
-    font-size: 14
+    font-size: 14px;
 }
 
 .container /*TODO: Make responsive*/ {
