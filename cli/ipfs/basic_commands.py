@@ -40,6 +40,7 @@ class BasicCommands:
     def __init__(self, kamina_process: KaminaProcess):
         self.settings = kamina_process.conf
         self.verbose = self.settings["troubleshoot"]["verbose"]
+        self.debug = self.settings["troubleshoot"]["debug"]
         self.logger = logging.getLogger("kamina")
 
     def setup_community_node(self, install_ipfs: bool) -> None:
@@ -81,7 +82,7 @@ class BasicCommands:
             # Only download if the folder go-ipfs doesnt exist already
             install_dir = str(PurePath(self.settings["storage"]["ipfs"]["install_dir"]))
             if not os.path.exists(install_dir):
-                self.__install_ipfs(install_dir)
+                self._install_ipfs(install_dir)
             else:
                 self.logger.error("Directory '%s' already exists, "
                                   "aborting download", install_dir)
@@ -107,7 +108,7 @@ class BasicCommands:
         # Print friendly message if everything went all right
         self.logger.info("Finished setting up kamina-community node.")
 
-    def __install_ipfs(self, install_dir: str) -> None:
+    def _install_ipfs(self, install_dir: str) -> None:
         """
         Download the correct ipfs binary for your platform
         :return: None
@@ -138,7 +139,7 @@ class BasicCommands:
         response = requests.get(download_url, stream=True)
         total_size = int(response.headers.get("content-length", 0))
         with open(temp_dl_file_location, "wb") as file:
-            if self.verbose:
+            if self.debug or self.verbose:
                 # Show a nice progress bar
                 pbar = tqdm(total=total_size, unit="B", unit_scale=True)
                 for data in response.iter_content(1024):
