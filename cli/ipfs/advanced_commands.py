@@ -115,6 +115,8 @@ class AdvancedCommands:
         In charge of handling some end signals
         """
         self.logger.info("Starting community daemon...")
+        # Setup signal handlers
+        self.process.setup_sighandlers()
         try:
             ipfs_binary = self._get_ipfs_bin_path()
         except FileNotFoundError:
