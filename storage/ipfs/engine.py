@@ -20,8 +20,12 @@ import ipfsapi
 
 class Engine:
     def __init__(self, settings: dict):
-        self.ipfs = None
+        self.ipfs_conn = None
         self.setting = settings
+        self._connect_to_ipfs()
 
-    def connect_ipfs(self):
-        self.ipfs = ipfsapi.connect('127.0.0.1', 5001)
+    def _connect_to_ipfs(self):
+        try:
+            self.ipfs_conn = ipfsapi.connect('127.0.0.1', 5001)
+        except ipfsapi.exceptions.ConnectionError:
+            print("Unable to connect to the ipfs daemon")

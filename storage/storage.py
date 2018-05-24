@@ -25,7 +25,7 @@ import logging
 
 class Storage:
     """
-    Helper class to standardize storage
+    Helper class to simplify storage
     """
     def __init__(self, settings: dict):
         self.settings = settings
@@ -36,9 +36,3 @@ class Storage:
             module = importlib.import_module("storage.ipfs.engine")
         self.engine = module.Engine(settings)
 
-    def make_thread(self):
-        """
-        Make a new thread
-        :return:
-        """
-        pass
