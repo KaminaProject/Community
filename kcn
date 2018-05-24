@@ -75,6 +75,7 @@ def main(ctx, verbose, debug, log, config_dir) -> None:
         logger.setLevel(logging.DEBUG)
 
     if debug:
+        conf["troubleshoot"]["debug"] = True
         logger.setLevel(logging.DEBUG)
 
     if not logger.handlers:  # Only add handlers if logger is not configured
@@ -87,9 +88,9 @@ def main(ctx, verbose, debug, log, config_dir) -> None:
     # Give value to our globals
     kamina_process = KaminaProcess(conf)
     if not conf["storage"]["ipfs"]["enable"]:
-        cli_commands = importlib.import_module("core.non-ipfs.cli_commands").CliCommands(kamina_process)
+        cli_commands = importlib.import_module("cli.non-ipfs.cli_commands").CliCommands(kamina_process)
     else:
-        cli_commands = importlib.import_module("core.ipfs.cli_commands").CliCommands(kamina_process)
+        cli_commands = importlib.import_module("cli.ipfs.cli_commands").CliCommands(kamina_process)
 
     # Add variable to global ctx object
     ctx.obj["CLI_COMMANDS"] = cli_commands
