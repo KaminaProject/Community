@@ -18,12 +18,6 @@
 """
 wsgi.py - Barebones file to get wsgi working
 """
-
-import os
-
 from backend.api import API
-from kamina.config import KaminaConfiguration
 
-# TODO: Find a way to send this conf object between threads
-CONF = KaminaConfiguration(os.path.dirname(os.path.abspath(__file__)))
-APP = API(CONF.conf).app
+APP = API().app
