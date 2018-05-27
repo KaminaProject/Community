@@ -19,8 +19,8 @@
 cli_commands.py: Class containing the command line commands - ipfs version
 """
 
-from core.ipfs.basic_commands import BasicCommands
-from core.ipfs.advanced_commands import AdvancedCommands
+from cli.ipfs.basic_commands import BasicCommands
+from cli.ipfs.advanced_commands import AdvancedCommands
 from kamina.process import KaminaProcess
 
 

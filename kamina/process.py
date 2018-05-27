@@ -35,12 +35,13 @@ class KaminaProcess:
         self.conf = conf
         self.logger = logging.getLogger("kamina")
 
+    def setup_sighandlers(self):
         # Set up some signal handlers
-        signal.signal(signal.SIGINT, self.exit_gracefully)
-        signal.signal(signal.SIGTERM, self.exit_gracefully)
-        signal.signal(signal.SIGHUP, self.exit_gracefully)
+        signal.signal(signal.SIGINT, self._exit_gracefully)
+        signal.signal(signal.SIGTERM, self._exit_gracefully)
+        signal.signal(signal.SIGHUP, self._exit_gracefully)
 
-    def exit_gracefully(self, signum, frame):
+    def _exit_gracefully(self, *_):
         """
         Handler for exit signals
         """
