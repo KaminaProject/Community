@@ -29,12 +29,12 @@ import sys
 import logging
 import logging.config
 import logging.handlers
-import importlib
 
 import click
 
 from kamina.process import KaminaProcess
 from kamina.config import KaminaConfiguration
+from kamina.cli import CliCommands
 
 # I have a low opinion of sigils, so function decorators have always looked
 # like pythonic cancer.  Despite that, I've gotta admit the Click framework
@@ -87,10 +87,7 @@ def main(ctx, verbose, debug, log, config_dir) -> None:
 
     # Give value to our globals
     kamina_process = KaminaProcess(conf)
-    if not conf["storage"]["ipfs"]["enable"]:
-        cli_commands = importlib.import_module("cli.non-ipfs.cli_commands").CliCommands(kamina_process)
-    else:
-        cli_commands = importlib.import_module("cli.ipfs.cli_commands").CliCommands(kamina_process)
+    cli_commands = CliCommands(kamina_process)
 
     # Add variable to global ctx object
     ctx.obj["CLI_COMMANDS"] = cli_commands

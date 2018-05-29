@@ -80,7 +80,7 @@ class BasicCommands:
         else:
             self.logger.debug("Downloading ipfs for current platform")
             # Only download if the folder go-ipfs doesnt exist already
-            install_dir = str(PurePath(self.settings["storage"]["ipfs"]["install_dir"]))
+            install_dir = str(PurePath(self.settings["ipfs"]["install_dir"]))
             if not os.path.exists(install_dir):
                 self._install_ipfs(install_dir)
             else:
@@ -90,7 +90,7 @@ class BasicCommands:
 
             # Now initialize the ipfs node with the downloaded binary
             ipfs_init_command[1] = shlex.quote(str(PurePath(
-                self.settings["storage"]["ipfs"]["install_dir"],
+                self.settings["ipfs"]["install_dir"],
                 "ipfs"
             )))
             if self.verbose:

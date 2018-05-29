@@ -48,7 +48,7 @@ class AdvancedCommands:
         Find the location of the ipfs binary
         :return: The location of ipfs binary, otherwise, FileNotFoundError
         """
-        local_ipfs_dir = self.settings["storage"]["ipfs"]["install_dir"]
+        local_ipfs_dir = self.settings["ipfs"]["install_dir"]
         bin_path = "ipfs"
         ipfs_in_path = True
 
@@ -94,7 +94,7 @@ class AdvancedCommands:
 
     def _start_api_server(self) -> subprocess.Popen:
         self.logger.debug("Starting api server...")
-        uwsgi_command = self.settings["flask"]["uwsgi"]["run_command"]
+        uwsgi_command = "uwsgi -y conf/uwsgi.yaml"
         if self.verbose:
             uwsgi_process = subprocess.Popen(
                 uwsgi_command.split(),

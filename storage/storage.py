@@ -19,8 +19,9 @@
 storage.py - Manage data storage, be it sqlite or ipfs
 """
 
-import importlib
 import logging
+
+import ipfsapi
 
 
 class Storage:
@@ -30,9 +31,11 @@ class Storage:
     def __init__(self, settings: dict):
         self.settings = settings
         self.logger = logging.getLogger("kamina")
-        if not settings["storage"]["ipfs"]["enable"]:
-            module = importlib.import_module("storage.non-ipfs.engine")
-        else:
-            module = importlib.import_module("storage.ipfs.engine")
-        self.engine = module.Engine(settings)
+        self.ipfs_conn = None
+        self._connect_to_ipfs()
 
+    def _connect_to_ipfs(self):
+        try:
+            self.ipfs_conn = ipfsapi.connect('127.0.0.1', 5001)
+        except ipfsapi.exceptions.ConnectionError:
+            print("Unable to connect to the ipfs daemon")

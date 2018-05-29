@@ -25,31 +25,8 @@ troubleshoot:
   debug: false
   verbose: false
 
-
-#####################
-#      Modules      #
-#####################
-
-## Configuration for modules kamina will use
-## TODO: Add configuration for usage of ports
-
-## Only one storage should be enabled
-storage:
-  ipfs:
-    enable: true
-    install_dir: "${HOME}/.kamina/go-ipfs"
-
-  sqlite:
-    enable: false
-    database: "${HOME}/.kamina/community/community.db"
-
-## Only one server should be enabled
-flask:
-  ## uWSGI, much better than werkzeug in production
-  uwsgi:
-    enable: true
-    run_command: "uwsgi -y conf/uwsgi.yaml"
-
-  ## Flask's built-in server
-  werkzeug:
-    enable: false
+##################################
+#       IPFS configuration       #
+##################################
+ipfs:
+  install_dir: "${HOME}/.kamina/go-ipfs"
