@@ -1,3 +1,4 @@
+(TODO: Kamina without ipfs)
 # Kamina Community
 <p align="center">
     <img src="logo/kamina.svg" width="400"/>
